@@ -503,8 +503,8 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.1';
-  const TOOL_VERSION_DATE = '2026-10-05';
+  const TOOL_VERSION = 'v5.3';
+  const TOOL_VERSION_DATE = '2026-10-07';
 
   const $ = id => document.getElementById(id);
 
@@ -2164,7 +2164,7 @@
       let s = String(raw || '').toLowerCase();
       s = s.replace(/×/g, 'x');
       s = s.replace(/[\u2012-\u2015\u2212]/g, '-');                     // long dashes (–, —) read as "-"
-      s = s.replace(/\([^()]*\b(?:each|per|1)\s*(?:roll|bundle|coil|box|pc|pcs|nos|no)\b[^()]*\)/g, ' ');   // "(50kg each roll)" is a note, not the quantity
+      s = s.replace(/\([^()]*\b(?:each|per|1)\s*(?:roll|bundle|coil|box|bag|pc|pcs|nos|no)\b[^()]*\)/g, ' ');   // "(50kg each roll)" is a note, not the quantity
       s = s.replace(/(\d)gi\b/g, '$1g gi');                            // "12gi wire" = "12g gi wire"
       s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');          // "gipvç" -> "gipvc"
       s = s.replace(/\b(?:qty|qnty|quantity)\s*[:=-]?\s*(?=\d)/g, '- ');   // "qty 10" -> "- 10"
@@ -2185,8 +2185,9 @@
       s = s.replace(/(\d)\s*(?:boxes|box)\b/g, '$1 box');
       s = s.replace(/(\d)\s*(?:bundles|bundle|bdls|bdl)\b/g, '$1 bundle');
       s = s.replace(/(\d)\s*(?:coils|coil)\b/g, '$1 coil');
+      s = s.replace(/(\d)\s*(?:bags|bag|bgs)\b/g, '$1 bag');
       // "3' x 50 roll" = 3ft, 50 rolls - a number with a count word after "<size> x" is the quantity
-      s = s.replace(/(\d(?:ft|mm|g|mtr))\s*x\s*(\d+(?:\.\d+)?)\s(roll|nos|pc|box|bundle|coil|kg)\b/g, '$1 - $2 $3');
+      s = s.replace(/(\d(?:ft|mm|g|mtr))\s*x\s*(\d+(?:\.\d+)?)\s(roll|nos|pc|box|bundle|coil|bag|kg)\b/g, '$1 - $2 $3');
       // "40 x 40 x 3mm", "65x65x 7mm", "1/2x1/2x16gx3ft" -> no spaces around x between numbers
       for (let i = 0; i < 3; i++) s = s.replace(/(\d(?:mm|ft|g|mtr)?)\s*x\s*(?=\d)/g, '$1x');
       s = s.replace(/(\d)x\s+(?=\d)/g, '$1x');
@@ -2201,7 +2202,7 @@
     // a number with a count unit (roll/nos/pc/box/bundle/coil/kg), or a number after - or : at the
     // end, or a bare number after a size ("3ft 2"). Anything else is left as "no quantity".
     function extractQty(n) {
-      const unitRe = /(?<![x\/.\d])(\d+(?:\.\d+)?)\s?(roll|nos|pc|box|bundle|coil|kg)\b/g;
+      const unitRe = /(?<![x\/.\d])(\d+(?:\.\d+)?)\s?(roll|nos|pc|box|bundle|coil|bag|kg)\b/g;
       const sepAll = n.match(/[-:=]\s*\d+(?:\.\d+)?(?![\d.x\/]|mm|ft|g\b|mtr)/g) || [];
       let m, last = null;
       while ((m = unitRe.exec(n))) last = { m, index: m.index };
@@ -2254,7 +2255,7 @@
     // that appears in a product name (tata, ayush, pvc, first, sada, pakka, diamond ...) is treated as
     // identity: the order and the product must agree on it.
     // unit and size words are part of the reading rules; every other common item word comes from Setup
-    const RULE_WORDS = new Set(['x', 'mm', 'ft', 'g', 'kg', 'mtr', 'inch', 'nos', 'no', 'pc', 'box', 'bundle', 'roll', 'coil',
+    const RULE_WORDS = new Set(['x', 'mm', 'ft', 'g', 'kg', 'mtr', 'inch', 'nos', 'no', 'pc', 'box', 'bag', 'bundle', 'roll', 'coil',
       'lite', 'light', 'heavy', 'super', 'compact', 'normal']);
     const isGeneric = w => RULE_WORDS.has(w) || ITEM_COMMON.has(w);
 
@@ -2450,6 +2451,12 @@
         if (!m) return null;
         return { pre: t.slice(0, m.index), post: t.slice(m.index + m[0].length) };
       }
+      // how many product words this line has of its own that the carried-over product doesn't
+      // (common words like gi / wire / mesh and size words like lite don't count)
+      function ownWords(specText, ctx) {
+        const have = new Set(parseSpec(ctx).words);
+        return new Set(parseSpec(specText).words.filter(w => w.length >= 2 && !isGeneric(w) && !have.has(w))).size;
+      }
       function readSpec(specText, q, ctx, sheetTpl) {
         const variants = [];
         // "Nail 2.5x10 - 10 box": nails counted in boxes are First wire nails (your rule)
@@ -2480,7 +2487,7 @@
         const newOrder = () => { cur = { header: [], body: [], chatter: [], rawLines: [] }; orders.push(cur); };
         // A quantity typed alone on the next line ("Gi sheet 1x1x12x5- 4mm -" then "6") belongs to the
         // line right above it, when that line has no quantity of its own yet.
-        const BARE_QTY = /^\s*[-:=]?\s*\d+(?:\.\d+)?\s*(?:nos?|no\.|pcs?|pieces?|rolls?|bundles?|bdls?|kgs?)?\s*\.?\s*$/i;
+        const BARE_QTY = /^\s*[-:=]?\s*\d+(?:\.\d+)?\s*(?:nos?|no\.|pcs?|pieces?|rolls?|bundles?|bdls?|bags?|kgs?)?\s*\.?\s*$/i;
         let prevBody = null;
         lines.forEach(raw => {
           if (prevBody && BARE_QTY.test(raw) && !extractQty(prevBody.n).qty && !extractQty(prevBody.n).multi) {
@@ -2583,20 +2590,27 @@
             parts.forEach(({ q: pq, raw, bad, qty: badQty, own }) => {
               if (bad) { items.push({ raw, status: 'unclear', why: 'could not tell which size this part of the line is', qty: badQty }); return; }
               const r = readSpec(pq.specText, pq, own ? '' : ctx, own ? null : sheetTpl);
-              if ((r.ok && r.pick.ctx) || (!r.ok && r.usedCtx)) ctxUsed = true;
+              // A line that names a product of its own ("Sq net verg green 12mm 3ft" after "Al coil 1.5ft",
+              // "Tarfelt golden" after "1x1/2x10g 3ft") is a new product, not more of the one above: when the
+              // two together fit nothing, it must not be shown as "al coil sq net ...", and the next "4ft -1"
+              // must build on it, not on the earlier product.
+              const newFamily = !own && !!ctx && ownWords(pq.specText, ctx) >= 2;
+              if ((r.ok && r.pick.ctx) || (!r.ok && r.usedCtx && !newFamily)) ctxUsed = true;
               if (r.ok) {
                 const pick = r.pick;
                 items.push({ raw, read: pick.t, product: pick.r.hits[0], how: pick.r.how, qty: pq.qty, unit: pq.unit, kg: pq.kg, status: 'ok', usedHeading: pick.ctx });
                 const ownRest = dropSize(pq.specText).trim();
                 const ownSize = pick.ctx && !own && /\d/.test(ownRest) && !/^\d+(?:\.\d+)?x\d+(?:\.\d+)?$/.test(ownRest);   // a bare sheet size "12x5" is not a new base
                 if (ownSize) { hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(pick.t); lastBase = baseOf(pick.t, sheetTpl); }
-                else if (!pick.ctx && pick.r.how !== 'name' && /\d/.test(pick.t) && parseSpec(pick.t).words.length + (pick.t.match(/\d/g) || []).length > 3) {
+                else if (!pick.ctx && ((pick.r.how !== 'name' && /\d/.test(pick.t) && parseSpec(pick.t).words.length + (pick.t.match(/\d/g) || []).length > 3) || newFamily)) {
                   // a full line of its own starts a new size group; if it had a length, the next "4ft : 2" reuses
                   // the rest, and if it had a sheet WxH pair, the next bare "12x5" slots into the same place
                   hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(pick.t); lastBase = baseOf(pick.t, sheetTpl);
                 }
               } else {
-                items.push({ raw, status: r.status, why: r.why, candidates: r.candidates, qty: pq.qty, read: r.read });
+                const ownText = tidySpec(pq.specText);
+                items.push({ raw, status: r.status, why: r.why, candidates: r.candidates, qty: pq.qty, read: newFamily ? ownText : r.read });
+                if (newFamily) { hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(ownText); lastBase = baseOf(ownText, sheetTpl); }
               }
             });
             if (pendRaw.length && pendHadSize && !ctxUsed) items.splice(insertAt, 0, { raw: pendRaw.join(' / '), status: 'no_qty', why: 'no quantity found for this line', qty: '' });
