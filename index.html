@@ -1,6 +1,7 @@
 <!-- Order to Sheet (formerly Order Entry Assistant)  |  Jain Wire Netting Corporation
      Version is also shown in the UI beside the title and stamped into every export file.
      When syncing another copy of this tool, compare these version numbers first. -->
+<meta charset="utf-8">
 <title>Order to Sheet</title>
 <style>
   /* Light coffee theme. Rust (--flag) is kept only for things that need your attention. */
@@ -138,6 +139,17 @@
   tr.oea-party-row input[data-field="party"] { font-weight:700; }
   tr.oea-party-row.oea-flagged td { background: var(--flag-soft); }
   tr.oea-item-row.oea-flagged td { background: var(--flag-soft); }
+  /* v5.6 Logistics Desk tray */
+  tr.oea-sent td { opacity: .5; }
+  tr.oea-sent input, tr.oea-sent select { pointer-events: none; }
+  .oea-sent-tag { margin-right: auto; font-size: 11px; font-weight: 700; text-transform: none; letter-spacing: 0; color: #fff; background: #1f5fa8; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  .oea-send-box { margin-top: 12px; padding: 10px 12px; border: 1px solid #1f5fa8; border-radius: 8px; }
+  .oea-send-btn { background: #1f5fa8 !important; border-color: #1f5fa8 !important; color: #fff !important; }
+  .oea-send-hint { font-size: 12.5px; color: var(--ink-soft); margin-left: 8px; }
+  .oea-tray-seen { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+  .oea-tray-ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+  .oea-tray-ok { color: #2e7d32; font-weight: 600; } .oea-tray-wait { color: #1f5fa8; font-weight: 600; } .oea-tray-rej { color: var(--flag); font-weight: 600; }
+  .oea-kg-ok { margin-left: 6px; font-size: 11px; padding: 1px 6px; }
   .oea-flag-tag { color: var(--flag); font-size:11.5px; font-weight:700; white-space:nowrap; }
   .oea-party-cell { display:flex; align-items:center; }
   .oea-party-cell input { flex:1; min-width:0; }
@@ -314,6 +326,12 @@
         <button class="oea-btn secondary" id="oea-copy-flat-btn">Copy all (flat rows)</button>
         <button class="oea-btn ghost" id="oea-download-backup-btn">Download backup</button>
         <button class="oea-btn ghost" id="oea-clear-table-btn">Clear working table</button>
+      </div>
+      <div class="oea-send-box">
+        <button class="oea-btn oea-send-btn" id="oea-send-ld-btn">Send to Logistics Desk</button>
+        <span class="oea-send-hint">All tabs at once, to Logistics Desk in this browser. It is only added there after you check it and press Add all.</span>
+        <div class="oea-status" id="oea-send-status"></div>
+        <div id="oea-tray-list"></div>
       </div>
       <textarea id="oea-output-box" readonly></textarea>
       <div class="oea-status" id="oea-copy-status"></div>
@@ -503,8 +521,8 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.3';
-  const TOOL_VERSION_DATE = '2026-10-07';
+  const TOOL_VERSION = 'v5.6';
+  const TOOL_VERSION_DATE = '2026-10-12';
 
   const $ = id => document.getElementById(id);
 
@@ -2081,9 +2099,18 @@
     prompt.style.cssText = 'margin-top:10px;padding:11px 13px;border:1px solid var(--flag);background:var(--flag-soft);border-radius:7px;font-size:13.5px;';
     const msg = document.createElement('div');
     msg.style.cssText = 'margin-bottom:9px;color:var(--ink);';
-    msg.textContent = uncopied.length
-      ? `Clear all ${partyCount} party block(s)? This can't be undone. Not yet copied: ${uncopied.join(', ')}.`
-      : `Clear all ${partyCount} party block(s)? This can't be undone.`;
+    // v5.6: a block counts as done once it is copied, or sent AND taken in by Logistics Desk
+    const rc = trayReceipts(); let notSent = 0, notTaken = 0;
+    body.querySelectorAll('tr.oea-date-row').forEach(d => {
+      const h = headerOf(d); if (h && h.dataset.copied === '1') return;
+      if (!d.dataset.sent) notSent++; else if (!rc[d.dataset.sent] || rc[d.dataset.sent].status !== 'added') notTaken++;
+    });
+    const warn = [];
+    if (notSent) warn.push(`${notSent} block(s) NOT sent to Logistics Desk or copied`);
+    if (notTaken) warn.push(`${notTaken} block(s) sent but not yet taken in by Logistics Desk`);
+    msg.textContent = warn.length
+      ? `⚠ Clear all ${partyCount} party block(s)? ${warn.join('; ')}. This can't be undone.`
+      : `Clear all ${partyCount} party block(s)? Everything was sent and taken in, or copied. This can't be undone.`;
     prompt.appendChild(msg);
 
     const yes = document.createElement('button');
@@ -2220,7 +2247,7 @@
       return { qty: '', unit: '', kg: false, specText: cleanSpec(n), multi };
     }
     function cleanSpec(s) {
-      return s.replace(/[-:=,()@.]+(?!\d)/g, ' ').replace(/\bpacked\b/g, ' ').replace(/\s+/g, ' ').trim();
+      return s.replace(/[-:=,()@.]+(?!\d)/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
     // ---------------------------------------------------------------- spec features
@@ -2385,7 +2412,11 @@
           if (!full && !partial) return;
           if (!key.filter(has).some(t => t.length >= 3) && !nameToks.every(has)) return;   // initials alone aren't enough
           if (hRare.some(r => !v.some(t => tokMatch(r, t)))) return;                     // order's own shop-name word missing
-          const coverage = h.filter(ht => v.some(t => tokMatch(ht, t))).length;
+          // how many of the order's words this party accounts for - "steel lane" written apart counts both
+          // words for STEELANE, so it beats STEELX that only explains "steel"
+          const cov = new Set(); h.forEach((ht, i) => { if (v.some(t => tokMatch(ht, t))) cov.add(i); });
+          for (let i = 0; i < h.length - 1; i++) if (h[i].length >= 3 && h[i + 1].length >= 3 && v.some(t => tokMatch(h[i] + h[i + 1], t))) { cov.add(i); cov.add(i + 1); }
+          const coverage = cov.size;
           const idx = nameToks.map(t => h.findIndex(x => tokMatch(x, t))).filter(i => i >= 0);
           const inOrder = idx.every((v2, i) => i === 0 || v2 > idx[i - 1]) ? 1 : 0;
           const placeOk = has(place) ? 1 : 0;
@@ -2573,6 +2604,21 @@
                   const tt = t.trim();
                   if (/^\d+(?:\.\d+)?ft$/.test(tt) && LEN.test(first)) { return first.replace(LEN, '') + (first.match(LEN)[0].startsWith('x') ? 'x' : ' ') + tt; }
                   if (/^\d+(?:\.\d+)?x\d+(?:\.\d+)?$/.test(tt) && PAIR.test(first)) return first.replace(PAIR, m => (m.startsWith('x') ? 'x' : ' ') + tt);
+                  // "Tea weathering 1mtr green -1, black -1": a part that is only a word or two swaps the same number
+                  // of words at the end of the first part (green -> black); the result still has to match a product
+                  if (/^[a-z]+(?: [a-z]+)?$/.test(tt)) {
+                    const n = tt.split(' ').length, toks = first.trim().split(/\s+/);
+                    // one word ("black"): try swapping each plain word of the first part, last first, and keep the
+                    // swap that fits exactly one product ("Tea weathering black 1mtr -2, green -3")
+                    if (n === 1) {
+                      for (let i = toks.length - 1; i > 0; i--) {
+                        if (!/^[a-z]+$/.test(toks[i]) || isGeneric(toks[i]) || toks[i] === tt) continue;
+                        const cand = toks.slice(0, i).concat(tt, toks.slice(i + 1)).join(' ');
+                        if (matchSpec(tidySpec(cand)).hits.length === 1) return cand;
+                      }
+                    }
+                    if (toks.length > n && toks.slice(-n).every(w => /^[a-z]+$/.test(w)) && !toks.slice(-n).every(w => isGeneric(w))) return toks.slice(0, -n).join(' ') + ' ' + tt;
+                  }
                   return null;                                               // can't tell which piece changed: leave it for review
                 };
                 parts = segs.map((x, i) => {
@@ -2917,12 +2963,16 @@
       tr.classList.add('oea-flagged');
       if (partyBlock.isNew) tr.dataset.newParty = '1';
       if (partyBlock.needsRoute) tr.dataset.needsRoute = '1';
+      if (partyBlock.checkParty) tr.dataset.checkParty = partyBlock.checkParty;
       tr.dataset.rawName = partyBlock.rawName || '';
     }
     const pTd = document.createElement('td'); pTd.colSpan = flagged ? 4 : TABLE_COLS;
     const pInput = document.createElement('input'); pInput.value = (partyBlock.party||'').toUpperCase(); pInput.dataset.field = 'party';
     forceUppercase(pInput);
     pInput.addEventListener('change', scheduleAutosave);
+    // an orange party row clears itself once its name is a party (or alias) in the Master List -
+    // typing the right name here also remembers how the order wrote it, like item rows do
+    pInput.addEventListener('change', () => { if (tr.classList.contains('oea-flagged') && clearPartyFlagIfKnown(tr, true)) regroupTable(); });
     const pWrap = document.createElement('div'); pWrap.className = 'oea-party-cell'; pWrap.appendChild(pInput);
     // × removes this party's whole order (date line, party line, its items). First press asks, second deletes.
     const del = document.createElement('button'); del.type = 'button'; del.className = 'oea-del-order'; del.textContent = '×';
@@ -3023,6 +3073,31 @@
     recompute(tr);
     return true;
   }
+  // a party row: true when the order's wording (or the name typed in the box) is now a party or alias
+  function clearPartyFlagIfKnown(tr, learnWording) {
+    const inp = tr.querySelector('input[data-field="party"]');
+    const raw = (tr.dataset.rawName || '').trim();
+    let p = raw ? findPartyByNameOrAlias(raw) : null;
+    if (!p && learnWording && inp && inp.value.trim()) {
+      p = findPartyByNameOrAlias(inp.value.trim());
+      if (p && raw && normalize(raw) !== normalize(p.name) && !(p.aliases || []).some(a => normalize(a) === normalize(raw))) {
+        p.aliases = p.aliases || []; p.aliases.push(raw.toUpperCase()); saveMaster();
+      }
+    }
+    if (!p) return false;
+    delete tr.dataset.checkParty;
+    return true;
+  }
+  function recheckPartyRows() {
+    let n = 0;
+    document.querySelectorAll('#oea-result-body tr.oea-party-row.oea-flagged').forEach(tr => {
+      // only when something changes: a new / unsure party now known, or a known party that now has its tab
+      const raw = (tr.dataset.rawName || '').trim(), p = raw ? findPartyByNameOrAlias(raw) : null;
+      if (p && (tr.dataset.newParty === '1' || p.route) && clearPartyFlagIfKnown(tr, false)) n++;
+    });
+    if (n) regroupTable();
+    return n;
+  }
   function recheckItemRows() {
     let n = 0;
     document.querySelectorAll('#oea-result-body tr.oea-item-row[data-new-product="1"]').forEach(tr => { if (clearItemFlagIfKnown(tr, false)) n++; });
@@ -3077,6 +3152,13 @@
     else if (item.convertedFromKg) flagTd.innerHTML = '<span class="oea-conv-tag" title="Order gave a total kg figure - converted to bundle count using the weight-per-unit already set for this item">kg→bundles</span>';
     else if (item.correctedBySignature) flagTd.innerHTML = '<span class="oea-conv-tag" title="Matched by exact dimensions - the numbers in the order text match this item and only this item">dimension match</span>';
     else if (item.correctedByWordMatch) flagTd.innerHTML = '<span class="oea-conv-tag" title="Matched by full product name - every word of this item\'s name appears in the order text, and it is the most specific such match">name match</span>';
+    if (item.kgCheck) {
+      const okBtn = document.createElement('button'); okBtn.type = 'button'; okBtn.className = 'oea-btn ghost oea-kg-ok'; okBtn.textContent = 'qty OK';
+      okBtn.title = 'The qty is right - clear this check (needed before sending to Logistics Desk)';
+      okBtn.onclick = () => { delete tr.dataset.kgCheck; if (tr.dataset.newProduct !== '1') tr.classList.remove('oea-flagged');
+        flagTd.querySelectorAll('.oea-flag-tag').forEach(x => { if (/KG/i.test(x.textContent)) x.remove(); }); okBtn.remove(); refreshReviewSummary(); };
+      flagTd.appendChild(okBtn);
+    }
     const delBtn = document.createElement('button'); delBtn.className = 'oea-btn ghost'; delBtn.textContent = 'x';
     delBtn.onclick = () => { tr.remove(); scheduleAutosave(); };
     flagTd.appendChild(delBtn); tr.appendChild(flagTd);
@@ -3130,10 +3212,10 @@
     let node = header.nextElementSibling;
     let curDate = null, curParty = null, matchLast = null;
     while (node && !node.classList.contains('oea-route-header')) {
-      if (node.classList.contains('oea-date-row')) { curDate = node.querySelector('input').value; curParty = null; }
+      if (node.classList.contains('oea-date-row')) { curDate = node.dataset.sent ? null : node.querySelector('input').value; curParty = null; } // a sent block takes no new lines
       else if (node.classList.contains('oea-party-row')) { curParty = node.querySelector('input[data-field="party"]').value; }
       else if (node.classList.contains('oea-item-row')) {
-        if (curDate === date && normalize(curParty) === normalize(partyName)) matchLast = node;
+        if (curDate !== null && curDate === date && normalize(curParty) === normalize(partyName)) matchLast = node;
       }
       node = node.nextElementSibling;
     }
@@ -3316,12 +3398,13 @@
     Array.from(body.children).forEach(tr => {
       if (tr.classList.contains('oea-route-header')) { underRoute = tr.dataset.route; return; }
       if (tr.classList.contains('oea-date-row')) {
-        current = { date: tr.querySelector('input').value, seq: Number(tr.dataset.seq), party: '', route: '', isNew: false, rawName: '', items: [], wasUnder: underRoute };
+        current = { date: tr.querySelector('input').value, seq: Number(tr.dataset.seq), sent: tr.dataset.sent || '', party: '', route: '', isNew: false, rawName: '', items: [], wasUnder: underRoute };
         blocks.push(current);
       } else if (tr.classList.contains('oea-party-row')) {
         if (!current) return;
         current.party = tr.querySelector('input[data-field="party"]').value;
         current.rawName = tr.dataset.rawName || '';
+        current.checkParty = tr.dataset.checkParty || '';
         current.wasFlagged = tr.classList.contains('oea-flagged');
         const routeInput = tr.querySelector('[data-field="route"]');
         current.route = routeInput ? routeInput.value.trim() : '';
@@ -3339,8 +3422,14 @@
     let movedCount = 0;
     // re-resolve each block fresh against the master list (party or its route may have just been saved)
     blocks.forEach(b => {
-      const known = findPartyByName(b.party);
+      // the order's own wording now being a party name or alias settles it (also an unsure "CHECK PARTY" row);
+      // otherwise an unsure row stays for review, and anything else is looked up by the name in the box
+      const byRaw = b.rawName ? findPartyByNameOrAlias(b.rawName) : null;
+      let known = null;
+      if (byRaw) { known = byRaw; b.checkParty = ''; }
+      else if (!b.checkParty) known = findPartyByName(b.party) || findPartyByNameOrAlias(b.party);
       if (known) {
+        b.party = known.name;
         b.route = known.route || '';
         b.isNew = false;
         b.needsRoute = !b.route;
@@ -3373,12 +3462,14 @@
       const header = ensureRouteHeader(body, routeKey);
       grouped[routeKey].sort((a, b) => (isNaN(a.seq) ? Infinity : a.seq) - (isNaN(b.seq) ? Infinity : b.seq));
       grouped[routeKey].forEach(b => {
-        const rows = [buildDateRow(b.date, b.seq), buildPartyRow({ party: b.party, isNew: b.isNew, needsRoute: b.needsRoute, rawName: b.rawName, route: b.route, possibleRoutes: b.possibleRoutes })];
+        const rows = [buildDateRow(b.date, b.seq), buildPartyRow({ party: b.party, isNew: b.isNew, needsRoute: b.needsRoute, rawName: b.rawName, route: b.route, possibleRoutes: b.possibleRoutes, checkParty: b.checkParty })];
         b.items.forEach(item => rows.push(buildItemRow(item)));
         appendRowsAfterHeader(body, header, rows);
+        if (b.sent) markSent(rows[0], b.sent);
       });
     });
-    Array.from(body.querySelectorAll('.oea-item-row')).forEach(recompute);
+    Array.from(body.querySelectorAll('.oea-item-row')).forEach(tr => { if (!tr.classList.contains('oea-sent')) recompute(tr); });
+    paintSentHeaders();
 
     // restore the ✓ Copied state for any route that was already copied before the rebuild,
     // unless a block moved into it since (that block has not been pasted yet)
@@ -3472,8 +3563,206 @@
     versionBadge.title = `Order to Sheet ${TOOL_VERSION} (${TOOL_VERSION_DATE}) — quote this when comparing copies of the tool.`;
   }
 
-  { const orig = renderMasterLists; renderMasterLists = function () { const r = orig.apply(this, arguments); try { recheckItemRows(); } catch (e) { console.warn(e); } return r; }; }
+  { const orig = renderMasterLists; renderMasterLists = function () { const r = orig.apply(this, arguments); try { recheckItemRows(); recheckPartyRows(); } catch (e) { console.warn(e); } return r; }; }
   { const origRg = regroupTable; regroupTable = function () { const r = origRg.apply(this, arguments); try { recheckItemRows(); refreshReviewSummary(); } catch (e) { console.warn(e); } return r; }; }
-  loadMaster().then(() => syncOnOpen());
+    // ================= v5.6: the Logistics Desk tray + the table kept when the tool is closed =================
+  // Logistics Desk (jainwireindia.github.io/logistics-desk/) and this tool share this browser's storage.
+  // "Send to Logistics Desk" puts the finished reading - every tab, in exactly the text "Copy this block"
+  // gives, with a line count and kg per tab - into this tool's own tray (TRAY_KEY). Logistics Desk only
+  // reads it, checks the counts, and adds nothing until "Add all" is pressed there. It answers in its own
+  // receipt list (RECEIPT_KEY), which this tool reads. Each tool writes only its own keys.
+  const TRAY_KEY = 'jw-tray-v1', RECEIPT_KEY = 'jw-tray-receipts-v1', OTS_SEEN = 'jw-ots-seen', LD_SEEN = 'jw-ld-seen';
+  const TABLE_KEY = 'oea-working-table-v1';
+  const lsJSON = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const trayBatches = () => { const t = lsJSON(TRAY_KEY); return t && Array.isArray(t.batches) ? t.batches : []; };
+  const trayReceipts = () => { const r = lsJSON(RECEIPT_KEY); return r && r.receipts && typeof r.receipts === 'object' ? r.receipts : {}; };
+  const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const dm = t => { const d = new Date(t); return String(d.getDate()).padStart(2, '0') + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const kgText = n => Math.round(n || 0).toLocaleString('en-IN') + ' kg';
+  function otsSeen() { try { localStorage.setItem(OTS_SEEN, JSON.stringify({ v: TOOL_VERSION, at: Date.now() })); } catch (e) {} }
+
+  // the rows of one party block (date row → next date row / tab header)
+  function blockRows(dateTr) {
+    const rows = [dateTr]; let n = dateTr.nextElementSibling;
+    while (n && !n.classList.contains('oea-date-row') && !n.classList.contains('oea-route-header')) { rows.push(n); n = n.nextElementSibling; }
+    return rows;
+  }
+  function headerOf(tr) { let h = tr.previousElementSibling; while (h && !h.classList.contains('oea-route-header')) h = h.previousElementSibling; return h; }
+  // a sent block is dimmed and locked, so what Logistics Desk got is what is on screen
+  function markSent(dateTr, batchId) {
+    if (batchId) dateTr.dataset.sent = batchId; else delete dateTr.dataset.sent;
+    blockRows(dateTr).forEach(r => {
+      r.classList.toggle('oea-sent', !!batchId);
+      r.querySelectorAll('input, select, button').forEach(x => { if (!x.classList.contains('oea-del-order')) x.disabled = !!batchId; });
+    });
+  }
+  function paintSentHeaders() {
+    document.querySelectorAll('#oea-result-body tr.oea-route-header').forEach(h => {
+      let n = h.nextElementSibling, total = 0, sent = 0;
+      while (n && !n.classList.contains('oea-route-header')) { if (n.classList.contains('oea-date-row')) { total++; if (n.dataset.sent) sent++; } n = n.nextElementSibling; }
+      let tag = h.querySelector('.oea-sent-tag');
+      if (!sent) { if (tag) tag.remove(); return; }
+      if (!tag) { tag = document.createElement('span'); tag.className = 'oea-sent-tag'; h.querySelector('.oea-group-inner > span').after(tag); }
+      tag.textContent = sent === total ? '✓ sent to Logistics Desk' : `${sent} of ${total} sent`;
+    });
+  }
+
+  // what is still to be sent, and what stops it
+  function sendCheck() {
+    const body = $('oea-result-body'), out = { blocks: [], problems: [] };
+    body.querySelectorAll('tr.oea-date-row').forEach(d => {
+      if (d.dataset.sent) return;
+      const rows = blockRows(d), h = headerOf(d), tab = h ? h.dataset.route : '';
+      const pr = rows.find(r => r.classList.contains('oea-party-row'));
+      const party = pr ? (pr.querySelector('input[data-field="party"]').value || '').trim() : '';
+      const items = rows.filter(r => r.classList.contains('oea-item-row'));
+      const name = party || '(no party name)';
+      if (tab === 'NEEDS REVIEW') out.problems.push(`${name}: still under NEEDS REVIEW - give it a tab and Save flagged`);
+      else if (!party) out.problems.push(`a block under ${tab} has no party name`);
+      else if (pr && pr.classList.contains('oea-flagged')) out.problems.push(`${name}: orange party row`);
+      if (!items.length) out.problems.push(`${name}: no item lines`);
+      items.forEach(it => {
+        const v = f => (it.querySelector(`input[data-field="${f}"]`) || {}).value || '';
+        const prod = v('product').trim(), qty = v('qty').trim();
+        if (it.classList.contains('oea-flagged')) out.problems.push(`${name}: orange line "${prod || '?'}"${it.dataset.kgCheck === '1' ? ' (kg - check the qty, then press "qty OK")' : ''}`);
+        else if (!prod) out.problems.push(`${name}: a line with no item name`);
+        else if (!qty || isNaN(parseNum(qty))) out.problems.push(`${name}: "${prod}" has no qty`);
+      });
+      out.blocks.push({ d, tab, party, items });
+    });
+    return out;
+  }
+  function ledgerText(b) {
+    const date = formatDateForCopy(b.d.querySelector('input').value);
+    const known = findPartyByName(b.party);
+    const possible = known ? (known.possibleRoutes || []).join(', ') : '';
+    const L = [[date, '', '', '', '', ''].join('\t'), ['', possible, b.party, '', '', ''].join('\t')];
+    b.items.forEach(it => { const v = f => ((it.querySelector(`input[data-field="${f}"]`) || {}).value || '').trim();
+      L.push(['', '', v('product'), v('qty'), v('weight'), v('totalwt')].join('\t')); });
+    return L.join('\n');
+  }
+  function sendToLD() {
+    const st = $('oea-send-status');
+    const ck = sendCheck();
+    if (!ck.blocks.length) { st.className = 'oea-status'; st.textContent = 'Nothing new to send - every block on screen has already been sent.'; return; }
+    if (ck.problems.length) {
+      st.className = 'oea-status err';
+      st.innerHTML = '<b>Not sent - fix these first:</b><br>' + ck.problems.slice(0, 12).map(escapeHtml).join('<br>') + (ck.problems.length > 12 ? `<br>…and ${ck.problems.length - 12} more` : '');
+      return;
+    }
+    // one entry per tab, in the order the tabs sit on screen
+    const byTab = [];
+    ck.blocks.forEach(b => { let t = byTab.find(x => x.tab === b.tab); if (!t) { t = { tab: b.tab, blocks: [] }; byTab.push(t); } t.blocks.push(b); });
+    const tabs = byTab.map(t => {
+      const lines = t.blocks.reduce((a, b) => a + b.items.length, 0);
+      const kg = t.blocks.reduce((a, b) => a + b.items.reduce((x, it) => x + (parseNum((it.querySelector('input[data-field="totalwt"]') || {}).value) || 0), 0), 0);
+      return { tab: t.tab, text: t.blocks.map(ledgerText).join('\n'), lines, kg: Math.round(kg * 1000) / 1000 };
+    });
+    const c = getConn() || {};
+    const batch = { id: 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: Date.now(), dev: c.device || '', app: TOOL_VERSION,
+      lines: tabs.reduce((a, t) => a + t.lines, 0), kg: Math.round(tabs.reduce((a, t) => a + t.kg, 0) * 1000) / 1000, tabs };
+    // keep the tray small: a batch Logistics Desk answered more than 3 days ago goes; one it never
+    // answered stays 30 days
+    const rc = trayReceipts(), now = Date.now();
+    const keep = trayBatches().filter(b => { const r = rc[b.id]; return r ? now - (r.at || 0) < 3 * 864e5 : now - (b.at || 0) < 30 * 864e5; });
+    keep.push(batch);
+    try { localStorage.setItem(TRAY_KEY, JSON.stringify({ batches: keep })); } catch (e) {
+      st.className = 'oea-status err'; st.textContent = 'Could not put it in the tray (browser storage refused it): ' + errText(e) + '. Use Copy this block for now.'; return; }
+    // only marked as sent once it is really there
+    const back = trayBatches().find(b => b.id === batch.id);
+    if (!back || back.lines !== batch.lines) { st.className = 'oea-status err'; st.textContent = 'The tray did not keep it - nothing was marked as sent. Try again, or use Copy this block.'; return; }
+    ck.blocks.forEach(b => markSent(b.d, batch.id));
+    paintSentHeaders(); saveTableSoon();
+    st.className = 'oea-status';
+    st.innerHTML = `<b>Sent ${batch.lines} line${batch.lines === 1 ? '' : 's'} · ${tabs.length} tab${tabs.length === 1 ? '' : 's'} · ${kgText(batch.kg)}</b> to the Logistics Desk tray (${tabs.map(t => escapeHtml(t.tab) + ' ' + t.lines).join(', ')}). Open Logistics Desk → Add orders to check and add them.`;
+    paintTrayList();
+  }
+  // the batches sent from here and what Logistics Desk did with them
+  function paintTrayList() {
+    const box = $('oea-tray-list'); if (!box) return;
+    const rc = trayReceipts(), list = trayBatches().slice().reverse().slice(0, 8);
+    const ld = lsJSON(LD_SEEN);
+    const seen = ld && ld.at ? `Logistics Desk ${escapeHtml(ld.v || '')} seen in this browser - last open ${dm(ld.at)} ${hm(ld.at)}.` : 'Logistics Desk (2.5 or newer) has not been opened in this browser yet - open it once so it can take in what you send.';
+    box.innerHTML = `<div class="oea-tray-seen">${seen}</div>` + (list.length ? '<ul class="oea-tray-ul">' + list.map(b => {
+      const r = rc[b.id];
+      const state = !r ? '<span class="oea-tray-wait">waiting in Logistics Desk</span>'
+        : r.status === 'added' ? `<span class="oea-tray-ok">✓ taken in ${dm(r.at)} ${hm(r.at)}: ${r.added} added${r.skipped ? `, ${r.skipped} skipped (duplicates / repeats)` : ''}</span>`
+        : `<span class="oea-tray-rej">✗ rejected: ${escapeHtml(r.reason || '')}</span> <button type="button" class="oea-swap-link" data-resend="${escapeHtml(b.id)}">Unlock to fix and send again</button>`;
+      return `<li>${dm(b.at)} ${hm(b.at)} · ${b.lines} line${b.lines === 1 ? '' : 's'} · ${b.tabs.length} tab${b.tabs.length === 1 ? '' : 's'} · ${kgText(b.kg)} - ${state}</li>`;
+    }).join('') + '</ul>' : '');
+    box.querySelectorAll('[data-resend]').forEach(x => x.onclick = () => {
+      let n = 0; document.querySelectorAll('#oea-result-body tr.oea-date-row').forEach(d => { if (d.dataset.sent === x.dataset.resend) { markSent(d, ''); n++; } });
+      paintSentHeaders(); saveTableSoon();
+      $('oea-send-status').className = 'oea-status';
+      $('oea-send-status').textContent = n ? `${n} block(s) unlocked - fix them and press Send to Logistics Desk again.` : 'Those blocks are no longer on screen.';
+    });
+  }
+  $('oea-send-ld-btn').addEventListener('click', sendToLD);
+  window.addEventListener('storage', e => { if (e.key === RECEIPT_KEY || e.key === LD_SEEN || e.key === TRAY_KEY) paintTrayList(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { otsSeen(); paintTrayList(); } });
+  setInterval(otsSeen, 60000);
+
+  // ---- the working table is kept in this browser, so closing the tool doesn't lose a reading ----
+  function snapTable() {
+    const body = $('oea-result-body'), blocks = []; let cur = null, under = '';
+    Array.from(body.children).forEach(tr => {
+      if (tr.classList.contains('oea-route-header')) { under = tr.dataset.route; return; }
+      if (tr.classList.contains('oea-date-row')) { cur = { under, date: tr.querySelector('input').value, seq: Number(tr.dataset.seq), sent: tr.dataset.sent || '', items: [] }; blocks.push(cur); return; }
+      if (!cur) return;
+      if (tr.classList.contains('oea-party-row')) {
+        cur.party = tr.querySelector('input[data-field="party"]').value; cur.rawName = tr.dataset.rawName || ''; cur.checkParty = tr.dataset.checkParty || '';
+        cur.isNew = tr.dataset.newParty === '1'; cur.needsRoute = tr.dataset.needsRoute === '1';
+        const ri = tr.querySelector('[data-field="route"]'); cur.route = ri ? ri.value : '';
+        try { cur.possibleRoutes = JSON.parse(tr.dataset.possibleRoutes || '[]'); } catch (e) { cur.possibleRoutes = []; }
+      } else if (tr.classList.contains('oea-item-row')) {
+        const item = { isNewProduct: tr.dataset.newProduct === '1', rawProduct: tr.dataset.rawProduct || '', convertedFromKg: tr.dataset.convertedFromKg === '1', correctedBySignature: tr.dataset.correctedBySignature === '1', correctedByWordMatch: tr.dataset.correctedByWordMatch === '1', kgCheck: tr.dataset.kgCheck === '1', reviewWhy: tr.dataset.reviewWhy || '' };
+        tr.querySelectorAll('input').forEach(inp => item[inp.dataset.field] = inp.value);
+        cur.items.push(item);
+      }
+    });
+    const copied = Array.from(body.querySelectorAll('tr.oea-route-header')).filter(h => h.dataset.copied === '1').map(h => h.dataset.route);
+    return { v: 1, savedAt: Date.now(), blocks, copied };
+  }
+  let tableTimer = null, restoring = false;
+  function saveTableSoon() {
+    if (restoring) return;
+    clearTimeout(tableTimer);
+    tableTimer = setTimeout(() => {
+      try {
+        const snap = snapTable();
+        if (!snap.blocks.length) localStorage.removeItem(TABLE_KEY); else localStorage.setItem(TABLE_KEY, JSON.stringify(snap));
+      } catch (e) { console.warn('working table not kept', e); }
+    }, 400);
+  }
+  function restoreWorkingTable() {
+    const snap = lsJSON(TABLE_KEY); if (!snap || !Array.isArray(snap.blocks) || !snap.blocks.length) return;
+    const body = $('oea-result-body'); if (body.querySelector('tr')) return;
+    restoring = true;
+    try {
+      snap.blocks.forEach(b => {
+        const header = ensureRouteHeader(body, b.under || 'NEEDS REVIEW');
+        const dateTr = buildDateRow(b.date, b.seq);
+        const rows = [dateTr, buildPartyRow({ party: b.party, isNew: b.isNew, needsRoute: b.needsRoute, rawName: b.rawName, route: b.route, possibleRoutes: b.possibleRoutes, checkParty: b.checkParty })];
+        (b.items || []).forEach(it => rows.push(buildItemRow(it)));
+        appendRowsAfterHeader(body, header, rows);
+        // values exactly as they were (not recomputed), then the sent lock
+        rows.slice(2).forEach((tr, i) => { const it = b.items[i]; ['product', 'qty', 'weight', 'totalwt'].forEach(f => { const x = tr.querySelector(`input[data-field="${f}"]`); if (x && it[f] != null) x.value = it[f]; }); });
+        if (b.sent) markSent(dateTr, b.sent);
+      });
+      (snap.copied || []).forEach(rt => { const h = Array.from(body.querySelectorAll('tr.oea-route-header')).find(x => x.dataset.route === rt);
+        if (h) { h.dataset.copied = '1'; const btn = h.querySelector('button'); if (btn) { btn.textContent = '✓ Copied'; btn.style.opacity = '0.65'; } markBlockCopied(h, true); } });
+      paintSentHeaders();
+      $('oea-result-card').style.display = 'block';
+      $('oea-copy-status').style.color = '';
+      $('oea-copy-status').textContent = `Put back the table from ${dm(snap.savedAt)} ${hm(snap.savedAt)} (it is kept until you clear it).`;
+    } finally { restoring = false; }
+  }
+  // any change to the table is kept: rows added, moved or removed, and anything typed
+  new MutationObserver(saveTableSoon).observe($('oea-result-body'), { childList: true, subtree: true, attributes: true, attributeFilter: ['data-sent', 'data-copied', 'data-new-party', 'data-needs-route', 'data-new-product', 'data-kg-check', 'data-possible-routes'] });
+  $('oea-result-body').addEventListener('input', saveTableSoon);
+  $('oea-result-body').addEventListener('change', saveTableSoon);
+  otsSeen();
+
+  loadMaster().then(() => { try { restoreWorkingTable(); } catch (e) { console.warn(e); } paintTrayList(); return syncOnOpen(); });
 })();
 </script>
