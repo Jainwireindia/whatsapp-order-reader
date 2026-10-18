@@ -139,6 +139,20 @@
   tr.oea-party-row input[data-field="party"] { font-weight:700; }
   tr.oea-party-row.oea-flagged td { background: var(--flag-soft); }
   tr.oea-item-row.oea-flagged td { background: var(--flag-soft); }
+  /* v5.7 delivery location row */
+  tr.oea-delivery-row td { background: var(--row-party); }
+  tr.oea-delivery-row.oea-flagged td { background: var(--flag-soft); }
+  .oea-deliv-cell { display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; }
+  .oea-deliv-label { font-weight:700; color:#1f5fa8; white-space:nowrap; padding-left:4px; }
+  .oea-deliv-cell input[data-field="place"] { flex:0 1 220px; min-width:90px; font-weight:600; color:#1f5fa8; }
+  .oea-deliv-info { font-size:12px; color:var(--ink-soft); }
+  .oea-loc-box { margin-top:6px; padding:6px 8px; border:1px dashed var(--line); border-radius:8px; }
+  .oea-loc-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:4px 0; border-bottom:1px solid var(--line); }
+  .oea-loc-row:last-of-type { border-bottom:none; }
+  .oea-loc-row input.oea-loc-name { font-weight:700; color:#1f5fa8; width:150px; }
+  .oea-loc-row input.oea-loc-vars { width:170px; font-size:12px; }
+  .oea-loc-row .oea-route-picker { flex-basis:100%; }
+  .oea-loc-warn { color:var(--flag); font-size:11.5px; font-weight:700; }
   /* v5.6 Logistics Desk tray */
   tr.oea-sent td { opacity: .5; }
   tr.oea-sent input, tr.oea-sent select { pointer-events: none; }
@@ -460,6 +474,7 @@
         <div><label>Common shop words <span class="oea-scope">all locations</span></label><div class="oea-sub">Words in many party names (traders, hardware, agencies…)</div><textarea id="oea-w-partyCommon"></textarea></div>
         <div><label>Filler words <span class="oea-scope">all locations</span></label><div class="oea-sub">Ignored in item text (and, of, the…)</div><textarea id="oea-w-filler"></textarea></div>
         <div><label>Chat words <span class="oea-scope">all locations</span></label><div class="oea-sub">Lines made only of these are skipped (pls, urgent, thanks…)</div><textarea id="oea-w-chatter"></textarea></div>
+        <div><label>Delivery words <span class="oea-scope">all locations</span></label><div class="oea-sub">Words before a delivery place: <code>site at</code> reads "site at Kallara", "site at - Kallara", "site at: Kallara". Ending with <code>:</code> or <code>-</code> (<code>delivery:</code>) means the - or : must be there, so "delivery today" is not a place.</div><textarea id="oea-w-delivery"></textarea></div>
       </div>
       <div class="oea-actions"><button class="oea-btn" id="oea-words-apply" type="button">Apply word lists</button></div>
       <div class="oea-status" id="oea-words-status"></div>
@@ -521,8 +536,8 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.6';
-  const TOOL_VERSION_DATE = '2026-10-12';
+  const TOOL_VERSION = 'v5.8';
+  const TOOL_VERSION_DATE = '2026-10-18';
 
   const $ = id => document.getElementById(id);
 
@@ -757,6 +772,7 @@
     if (!Array.isArray(master.routes)) master.routes = [];
     if (!Array.isArray(master.possibleRouteList)) master.possibleRouteList = [];
     if (!master.words || typeof master.words !== 'object') master.words = {};
+    seedDeliveryWords();
     renderMasterLists(); renderRouteOptions();
     if (!loadedFrom && readErrors.length) loadProblem = readErrors.join('; ');
     else if (!loadedFrom && !availableStores.length) loadProblem = 'this window offers no storage at all, so the list can only be kept by Export / Import.';
@@ -764,6 +780,11 @@
     setSaveState(loadProblem ? 'loadfail' : 'loaded');
     if (!loadProblem && loadedFrom === trialCopy) { masterDirty = true; setSaveState('dirty'); }   // Save once moves it into the tool's own storage
   }
+
+  // v5.8: the words that introduce a delivery place are a word list in Setup (all locations). A list that has
+  // never existed starts with these; after that it is only what is in Setup / the Sheet.
+  const STARTER_DELIVERY_WORDS = ['site at', 'delivery to', 'delivery location at', 'location at', 'delivery:', 'location -'];
+  function seedDeliveryWords() { master.words = master.words || {}; if (!Array.isArray(master.words.delivery)) master.words.delivery = STARTER_DELIVERY_WORDS.slice(); }
 
   function storeNames() { return availableStores.map(s => s.label).join(', ') || 'none'; }
 
@@ -1081,13 +1102,14 @@
 
   // what the Sheet holds, in the tool's terms - used to work out what changed since the last load
   const entryItem = p => ({ id: p.id, name: p.name, weight: p.weight == null ? '' : String(p.weight), soldByKg: !!p.soldByKg, aliases: (p.aliases || []).slice(), updated: p.updated || 0 });
-  const entryParty = p => ({ id: p.id, name: p.name, route: p.route || '', possibleRoutes: (p.possibleRoutes || []).slice(), aliases: (p.aliases || []).slice(), updated: p.updated || 0 });
+  const entryLoc = l => ({ name: l.name || '', tab: l.tab || '', possibleRoutes: (l.possibleRoutes || []).slice(), aliases: (l.aliases || []).slice() });
+  const entryParty = p => ({ id: p.id, name: p.name, route: p.route || '', possibleRoutes: (p.possibleRoutes || []).slice(), aliases: (p.aliases || []).slice(), locations: (p.locations || []).filter(l => l && l.name).map(entryLoc), updated: p.updated || 0 });
   const setupOf = m => ({ tabs: (m.routes || []).slice(), routes: (m.possibleRouteList || []).slice(), partyShort: ((m.words || {}).partyShort || []).slice(), places: ((m.words || {}).places || []).slice() });
-  const sharedWordsOf = m => { const w = m.words || {}; return { spellings: w.spellings || [], itemCommon: w.itemCommon || [], partyCommon: w.partyCommon || [], filler: w.filler || [], chatter: w.chatter || [] }; };
+  const sharedWordsOf = m => { const w = m.words || {}; return { spellings: w.spellings || [], itemCommon: w.itemCommon || [], partyCommon: w.partyCommon || [], filler: w.filler || [], chatter: w.chatter || [], delivery: w.delivery || [] }; };
   const snapshotOf = m => ({ items: m.products.map(entryItem), parties: m.parties.map(entryParty), setup: setupOf(m), words: sharedWordsOf(m) });
   function getBase() { try { return JSON.parse(lsGet(BASE_KEY) || 'null'); } catch (e) { return null; } }
   function computeChanges(base) {
-    const sig = e => JSON.stringify([e.name, e.weight, e.soldByKg, e.route, e.possibleRoutes, e.aliases]);
+    const sig = e => JSON.stringify([e.name, e.weight, e.soldByKg, e.route, e.possibleRoutes, e.aliases, e.locations || []]);
     const diff = (was, now) => {
       const bm = new Map(was.map(e => [e.id, e])), seen = new Set(), upsert = [], remove = [];
       now.forEach(e => { seen.add(e.id); const b = bm.get(e.id); if (!b) upsert.push(Object.assign({}, e, { base: 0 })); else if (sig(b) !== sig(e)) upsert.push(Object.assign({}, e, { base: b.updated || 0 })); });
@@ -1107,13 +1129,42 @@
     if (!r.items.length && !r.parties.length && (master.products.length || master.parties.length))
       throw new Error('the Sheet is still empty — press "Upload Master List to the Sheet" first');
     master.products = r.items.map(e => ({ id: e.id, name: e.name, weight: e.weight, soldByKg: !!e.soldByKg, aliases: e.aliases || [], updated: e.updated || 0 }));
-    master.parties = r.parties.map(e => ({ id: e.id, name: e.name, route: e.route || '', possibleRoutes: e.possibleRoutes || [], aliases: e.aliases || [], updated: e.updated || 0 }));
+    // v5.7: delivery locations live in the Sheet's "Delivery locations" column - only a server that knows it
+    // (features: locations) sends them. Until then, and the first time it does, this browser keeps its own.
+    const locServer = Array.isArray(r.features) && r.features.includes('locations');
+    const dwServer = Array.isArray(r.features) && r.features.includes('deliveryWords');
+    const prevBase = getBase();
+    const oldDelivery = ((master.words || {}).delivery || []).slice();
+    const oldLocs = new Map(); master.parties.forEach(p => { if ((p.locations || []).length) { if (p.id) oldLocs.set('i:' + p.id, p.locations); oldLocs.set('n:' + normalize(p.name), p.locations); } });
+    master.parties = r.parties.map(e => ({ id: e.id, name: e.name, route: e.route || '', possibleRoutes: e.possibleRoutes || [], aliases: e.aliases || [], locations: locServer ? (e.locations || []) : [], updated: e.updated || 0 }));
     master.routes = r.setup.tabs || []; master.possibleRouteList = r.setup.routes || [];
     master.words = Object.assign({}, r.words || {}, { partyShort: r.setup.partyShort || [], places: r.setup.places || [] });
-    lsSet(BASE_KEY, JSON.stringify(Object.assign({ location: r.location, loadedAt: r.serverTime }, snapshotOf(master))));
+    // delivery words: an older server doesn't keep them, and the first time a new one is used it has none yet
+    const sheetDelivery = Array.isArray(master.words.delivery) ? master.words.delivery : [];
+    master.words.delivery = sheetDelivery;
+    const sheetSnap = snapshotOf(master);                 // exactly what the Sheet holds
+    let keptDw = false;
+    if (!dwServer) master.words.delivery = oldDelivery;
+    else if (!(prevBase && prevBase.dwServer) && !sheetDelivery.length) { master.words.delivery = oldDelivery.length ? oldDelivery : STARTER_DELIVERY_WORDS.slice(); keptDw = true; }
+    let keptLocs = 0;
+    if (!locServer || !(prevBase && prevBase.locServer)) {
+      master.parties.forEach(p => { if (!p.locations.length) { const o = oldLocs.get('i:' + p.id) || oldLocs.get('n:' + normalize(p.name)); if (o) { p.locations = o; keptLocs++; } } });
+    }
+    // old server: the kept locations are not a change to send (it can't store them); new server: they are
+    const baseSnap = locServer ? sheetSnap : snapshotOf(master);
+    if (!dwServer) baseSnap.words = sharedWordsOf(master);                 // an old server can't take them: nothing to send
+    lsSet(BASE_KEY, JSON.stringify(Object.assign({ location: r.location, loadedAt: r.serverTime, locServer, dwServer }, baseSnap)));
+    const dwChanged = !dwServer && JSON.stringify(master.words.delivery) !== JSON.stringify(STARTER_DELIVERY_WORDS);
+    const locNote = [
+      !locServer && keptLocs ? `Delivery locations (${keptLocs} part${keptLocs === 1 ? 'y' : 'ies'}) are kept in this browser only — update the Sheet server script (v3) so they are saved in the Sheet.` : '',
+      dwChanged ? 'Delivery words are kept in this browser only — update the Sheet server script (v3) so they are saved in the Sheet.' : '',
+      (locServer && keptLocs) || keptDw ? `${keptLocs ? keptLocs + ' part' + (keptLocs === 1 ? 'y has' : 'ies have') + ' delivery locations' : 'Delivery words are'} not yet in the Sheet — press Save to send them.` : ''
+    ].filter(Boolean).join(' ');
+    if (locNote) setTimeout(() => { const st = $('oea-conn-status'); if (st && !st.textContent.includes(locNote)) { st.textContent = (st.textContent ? st.textContent + ' ' : '') + locNote; st.className = 'oea-status err'; } }, 0);
     renderMasterLists(); renderRouteOptions(); if (currentPage === 'tabs') renderWords();
     try { await storeMaster(JSON.stringify(master)); } catch (e) {}          // this browser keeps a copy for offline use
     masterDirty = false; setSaveState('loaded');
+    if ((locServer && keptLocs) || keptDw) markDirty();
   }
   async function loadFromSheet() { const r = await callServer({ action: 'load' }, 120000); if (masterDirty) throw new Error('you have unsaved changes — Save first'); await applySheet(r); return r; }
   // send what changed since the last load, then show the Sheet's version (with everyone's changes)
@@ -1443,7 +1494,7 @@
   }
 
   // ---------- Setup: reading word lists (master.words) ----------
-  const WORD_PAIRS = ['spellings', 'partyShort'], WORD_LISTS = ['places', 'itemCommon', 'partyCommon', 'filler', 'chatter'];
+  const WORD_PAIRS = ['spellings', 'partyShort'], WORD_LISTS = ['places', 'itemCommon', 'partyCommon', 'filler', 'chatter', 'delivery'];
   function renderWords() {
     const w = master.words || {};
     WORD_PAIRS.forEach(k => { const el = $('oea-w-' + k); if (el) el.value = (w[k] || []).map(r => (r.from || []).join('; ') + ' = ' + (r.to || '')).join('\n'); });
@@ -1459,7 +1510,7 @@
         out[k].push({ from: m[0].split(';').map(x => x.trim().toLowerCase()).filter(Boolean), to: m[1].trim().toLowerCase() });
       });
     });
-    WORD_LISTS.forEach(k => { out[k] = Array.from(new Set($('oea-w-' + k).value.split(/[\n;]/).map(x => x.trim().toLowerCase()).filter(Boolean))); });
+    WORD_LISTS.forEach(k => { out[k] = Array.from(new Set($('oea-w-' + k).value.split(/[\n;]/).map(x => x.trim().toLowerCase().replace(/\s+/g, ' ')).filter(Boolean))); });
     return { words: out, bad };
   }
   $('oea-words-apply').addEventListener('click', () => {
@@ -1540,7 +1591,7 @@
     const partyQuery = normalize(($('oea-party-search') || {}).value || '');
     if (partyQuery !== lastPartyQ) { partyLimit = LIST_PAGE; lastPartyQ = partyQuery; }
     const partyWords = searchWords(($('oea-party-search') || {}).value);
-    const partyMatch = p => !partyQuery || normalize(p.route||'').includes(partyQuery) || searchHit(partyQuery, partyWords, [p.name, ...(p.aliases||[])]);
+    const partyMatch = p => !partyQuery || normalize(p.route||'').includes(partyQuery) || searchHit(partyQuery, partyWords, [p.name, ...(p.aliases||[]), ...(p.locations||[]).map(l => l.name)]);
     const matches = master.parties.filter(partyMatch);
     const pList = $('oea-party-list'); pList.innerHTML = '';
     matches.slice(0, partyLimit).forEach(p => {
@@ -1594,7 +1645,9 @@
           saveMaster(); renderMasterLists();
         }
       });
-      aliasRow.appendChild(addAlias); li.appendChild(aliasRow); pList.appendChild(li);
+      aliasRow.appendChild(addAlias); li.appendChild(aliasRow);
+      li.appendChild(buildLocationBox(p));
+      pList.appendChild(li);
     });
     const moreHost = $('oea-party-more'); moreHost.innerHTML = '';
     if (matches.length > partyLimit) moreHost.appendChild(showMoreRow(partyLimit, matches.length,
@@ -1605,6 +1658,63 @@
       : "No parties yet — add a few, or they'll be added automatically as you save flagged rows.";
     const pCount = $('oea-party-count');
     if (pCount) pCount.textContent = partyQuery ? `${matches.length} of ${master.parties.length}` : `${master.parties.length} total`;
+  }
+
+  // v5.7: a party's delivery locations ("site at …" / "delivery to …" in orders) - each with its own g-sheet tab
+  // and possible routes; orders to that place are filed under the location's tab, with its routes
+  function buildLocationBox(p) {
+    p.locations = p.locations || [];
+    const box = document.createElement('div'); box.className = 'oea-loc-box';
+    if (!p.locations.length) box.style.cssText = 'border:none;padding:2px 0 0;margin-top:2px;';
+    if (p.locations.length) {
+      const head = document.createElement('div'); head.className = 'oea-rpill-label';
+      head.textContent = `Delivery locations (${p.locations.length}) — orders "site at / delivery to" these places go under the location's tab, with its routes:`;
+      box.appendChild(head);
+    }
+    p.locations.forEach((l, i) => {
+      const row = document.createElement('div'); row.className = 'oea-loc-row';
+      const lab = document.createElement('span'); lab.className = 'oea-deliv-label'; lab.textContent = 'Delivery -';
+      const name = document.createElement('input'); name.className = 'oea-loc-name'; name.value = l.name || '';
+      name.addEventListener('change', () => {
+        const v = titlePlace(name.value);
+        const clash = v && p.locations.find(o => o !== l && (normalize(o.name) === normalize(v) || (o.aliases || []).some(a => normalize(a) === normalize(v))));
+        if (!v || clash) { name.value = l.name; return; }
+        if (normalize(v) !== normalize(l.name) && l.name) { l.aliases = l.aliases || []; if (!l.aliases.some(a => normalize(a) === normalize(l.name))) l.aliases.push(l.name); }
+        l.name = v; name.value = v; saveMaster();
+      });
+      const sel = document.createElement('select'); sel.title = 'The g-sheet tab orders for this place go under';
+      sel.style.cssText = 'font-size:13px;color:var(--accent);background:var(--accent-soft);border:none;padding:4px 9px;border-radius:10px;width:150px;';
+      const blank = document.createElement('option'); blank.value = ''; blank.textContent = '— no tab —'; sel.appendChild(blank);
+      allRoutes().forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); });
+      sel.value = l.tab || '';
+      const warn = document.createElement('span'); warn.className = 'oea-loc-warn';
+      const paintWarn = () => { warn.textContent = locComplete(l) ? '' : 'needs a tab and at least one route'; };
+      sel.addEventListener('change', () => { l.tab = sel.value; paintWarn(); saveMaster(); });
+      const vars = document.createElement('input'); vars.className = 'oea-loc-vars'; vars.placeholder = 'other spellings, comma separated';
+      vars.value = (l.aliases || []).join(', ');
+      vars.addEventListener('change', () => { l.aliases = Array.from(new Set(vars.value.split(',').map(titlePlace).filter(Boolean))); vars.value = l.aliases.join(', '); saveMaster(); });
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'oea-btn ghost tiny'; del.textContent = 'Remove';
+      let armT = null;
+      del.onclick = () => {
+        if (!del.classList.contains('armed')) { del.classList.add('armed'); del.textContent = 'Remove this location?'; armT = setTimeout(() => { del.classList.remove('armed'); del.textContent = 'Remove'; }, 4000); return; }
+        clearTimeout(armT); p.locations.splice(i, 1); saveMaster(); renderPartyList();
+      };
+      l.possibleRoutes = l.possibleRoutes || [];
+      const picker = buildPossibleRoutesPicker(l.possibleRoutes, () => { paintWarn(); saveMaster(); });
+      row.appendChild(lab); row.appendChild(name); row.appendChild(sel); row.appendChild(vars); row.appendChild(del); row.appendChild(warn); row.appendChild(picker.wrap);
+      paintWarn();
+      box.appendChild(row);
+    });
+    const add = document.createElement('input'); add.className = 'oea-alias-add'; add.placeholder = '+ delivery location'; add.style.marginTop = '4px';
+    add.title = 'A site this party orders to ("site at Kallara"). Then pick its tab and routes.';
+    add.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || !add.value.trim()) return;
+      const v = titlePlace(add.value);
+      if (!findLocation(p, v)) { p.locations.push({ name: v, tab: '', possibleRoutes: [], aliases: [] }); saveMaster(); }
+      renderPartyList();
+    });
+    box.appendChild(add);
+    return box;
   }
 
   function renderProductList() {
@@ -1907,8 +2017,9 @@
             existing.route = existing.route || ip.route || '';
             existing.aliases = Array.from(new Set([...(existing.aliases||[]), ...(ip.aliases||[])]));
             existing.possibleRoutes = Array.from(new Set([...(existing.possibleRoutes||[]), ...(ip.possibleRoutes||[])]));
+            (ip.locations || []).forEach(l => { if (l && l.name && !findLocation(existing, l.name)) { existing.locations = existing.locations || []; existing.locations.push(entryLoc(l)); } });
           } else {
-            const np = {id: ip.id && !pById.has(ip.id) ? ip.id : undefined, name: upperName, route: ip.route||'', aliases: ip.aliases||[], possibleRoutes: ip.possibleRoutes||[]};
+            const np = {id: ip.id && !pById.has(ip.id) ? ip.id : undefined, name: upperName, route: ip.route||'', aliases: ip.aliases||[], possibleRoutes: ip.possibleRoutes||[], locations: (ip.locations||[]).filter(l => l && l.name).map(entryLoc)};
             master.parties.push(np); pByName.set(normalize(upperName), np); if (np.id) pById.set(np.id, np); addedP++;
           }
         });
@@ -1931,7 +2042,7 @@
         }
         if (imported.words && typeof imported.words === 'object') {
           const w = master.words = master.words || {};
-          ['places', 'itemCommon', 'partyCommon', 'filler', 'chatter'].forEach(k => { w[k] = Array.from(new Set([...(w[k] || []), ...(imported.words[k] || [])])); });
+          ['places', 'itemCommon', 'partyCommon', 'filler', 'chatter', 'delivery'].forEach(k => { w[k] = Array.from(new Set([...(w[k] || []), ...(imported.words[k] || [])])); });
           ['spellings', 'partyShort'].forEach(k => {
             const have = new Set((w[k] || []).map(r => (r.from || []).join(';') + '=' + r.to));
             w[k] = [...(w[k] || []), ...(imported.words[k] || []).filter(r => r && r.to && !have.has((r.from || []).join(';') + '=' + r.to))];
@@ -2429,6 +2540,11 @@
         cands.sort(cmp).forEach(c => { if (!seen.has(c.p.name)) { seen.add(c.p.name); uniq.push(c); } });
         const best = uniq.filter(c => cmp(c, uniq[0]) === 0);
         const list = uniq.slice(0, 4).map(c => c.p.name);
+        // "Sunrise roofing": SUNRISE STORES / SUNRISE TRADERS have every distinctive word but leave "roofing"
+        // unexplained; SUNRISE ROOFINGS AND BUILDWARE misses one word of its own name but explains every word
+        // the order wrote - suggest that one, as probable (it still comes up for a check)
+        const explainsAll = uniq.find(c => !c.full && c.tuple[2] === h.length && c.tuple[2] > uniq[0].tuple[2]);
+        if (explainsAll) return { status: 'probable', party: explainsAll.p, placeMatched: explainsAll.tuple[1] === 1, candidates: [explainsAll.p.name, ...list.filter(n => n !== explainsAll.p.name)].slice(0, 4) };
         if (best.length > 1) return { status: 'ambiguous', candidates: best.map(c => c.p.name) };
         return { status: best[0].full ? 'match' : 'probable', party: best[0].p, placeMatched: best[0].tuple[1] === 1, candidates: list };
       }
@@ -2459,6 +2575,9 @@
         const nonVocab = words.filter(w => !vocab.has(w));
         const pm = matchParty(raw);
         if (pm.status === 'match' && nonVocab.length) return { kind: 'party', n };
+        // "Sunrise roofing": one item word ("roofing") + one word that isn't an item word but is a word in
+        // the names of the parties it nearly matches ("sunrise") = a shop name, not a product heading
+        if (nonVocab.length === 1 && pm.status !== 'none' && (pm.candidates || []).some(c => ptoks(c).some(t => tokMatch(t, nonVocab[0])))) return { kind: 'party', n };
         // a product heading is (almost) all product words: "Wire mesh", "First wire nail", "SAND MESH".
         // Two or more unknown words ("Wire House Kumily") = a shop name, not a heading.
         if (words.some(w => vocab.has(w)) && nonVocab.length <= 1) return { kind: 'heading', n, unknownWord: nonVocab[0] || '' };
@@ -2511,16 +2630,52 @@
         return { ok: false, status: 'unknown', why: 'no product in the list fits', read: (variants[0] || {}).t || specText, usedCtx: !!(variants[0] || {}).ctx };
       }
 
+      // ---- delivery location: "site at Kallara" / "Delivery to: Kallara" (on its own line, or at the end of the
+      // party line) says where this order goes. It is not an item and not a new party; the party stays the party.
+      // the words come from Setup → Delivery words ("site at", "delivery to", "delivery:" …); a word ending in
+      // ":" or "-" needs the ":" or "-" written after it, so "delivery today" is not a place
+      const DELIVERY_AT = (() => {
+        const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const alts = wl(W.delivery).map(w => {
+          const needSep = /[-:–]\s*$/.test(w), words = w.replace(/[-:–\s]+$/, '').trim();
+          if (!words) return null;
+          return { len: words.length, re: words.split(/\s+/).map(esc).join('\\s+') + '(?![a-z])' + (needSep ? '\\s*[-:–]' : '\\s*[-:–]?') };
+        }).filter(Boolean).sort((a, b) => b.len - a.len).map(x => x.re);
+        return alts.length ? new RegExp('(^|[^a-z])(?:' + alts.join('|') + ')\\s*([a-z][a-z .\'&-]*?)[\\s.,;:*)-]*$', 'i') : null;
+      })();
+      const placeCase = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+      function deliveryOf(raw) {
+        if (!DELIVERY_AT) return null;
+        const m = String(raw || '').match(DELIVERY_AT);
+        if (!m) return null;
+        const place = m[2].replace(/[\s.'&-]+$/, '').trim();
+        if (!place || place.split(/\s+/).length > 4) return null;
+        return { place: placeCase(place), rest: String(raw).slice(0, m.index + m[1].length).replace(/[\s,:;*(-]+$/, '') };
+      }
+
       // ---- the reader
       function parse(text) {
         const lines = String(text || '').split('\n');
         const orders = []; let cur = null;
-        const newOrder = () => { cur = { header: [], body: [], chatter: [], rawLines: [] }; orders.push(cur); };
+        const newOrder = () => { cur = { header: [], body: [], chatter: [], rawLines: [], delivery: '' }; orders.push(cur); };
         // A quantity typed alone on the next line ("Gi sheet 1x1x12x5- 4mm -" then "6") belongs to the
         // line right above it, when that line has no quantity of its own yet.
         const BARE_QTY = /^\s*[-:=]?\s*\d+(?:\.\d+)?\s*(?:nos?|no\.|pcs?|pieces?|rolls?|bundles?|bdls?|bags?|kgs?)?\s*\.?\s*$/i;
         let prevBody = null;
-        lines.forEach(raw => {
+        lines.forEach(fullRaw => {
+          // "site at Kallara" alone: belongs to the order it is written in; at the end of a line, the rest of the
+          // line is read as usual first (a party line starts its order), then the place is put on that order
+          const dl = deliveryOf(fullRaw);
+          if (dl && !dl.rest.trim()) {
+            if (!cur) newOrder();
+            cur.delivery = dl.place; cur.rawLines.push(fullRaw.replace(/\s+$/, ''));
+            prevBody = null;
+            return;
+          }
+          readLine(dl ? dl.rest : fullRaw, fullRaw);
+          if (dl) { if (!cur) newOrder(); cur.delivery = dl.place; }
+        });
+        function readLine(raw, shownRaw) {
           if (prevBody && BARE_QTY.test(raw) && !extractQty(prevBody.n).qty && !extractQty(prevBody.n).multi) {
             const joined = /[-:=]\s*$/.test(prevBody.raw) ? prevBody.raw + ' ' + raw.trim().replace(/^[-:=]\s*/, '') : prevBody.raw + ' - ' + raw.trim().replace(/^[-:=]\s*/, '');
             const jc = classify(joined);
@@ -2535,15 +2690,15 @@
           if (c.kind === 'party') {
             if (!cur || cur.body.length) newOrder();
             cur.header.push(raw.replace(/[*:]/g, ' ').replace(/\s+/g, ' ').trim());
-            cur.rawLines.push(raw.replace(/\s+$/, ''));
+            cur.rawLines.push(shownRaw.replace(/\s+$/, ''));
             return;
           }
           if (!cur) newOrder();
-          cur.rawLines.push(raw.replace(/\s+$/, ''));
+          cur.rawLines.push(shownRaw.replace(/\s+$/, ''));
           if (c.kind === 'chatter') { cur.chatter.push(raw.trim()); return; }
           cur.body.push({ raw: raw.trim(), n: c.n, kind: c.kind, unknownWord: c.unknownWord });
           prevBody = cur.body[cur.body.length - 1];
-        });
+        }
 
         return orders.map(o => {
           const partyText = o.header.join(' ');
@@ -2671,7 +2826,7 @@
           items.filter(i => i.status !== 'ok').forEach(i => reasons.push(`"${i.raw}": ${i.why}${i.candidates && i.candidates.length ? ' (' + i.candidates.join(' / ') + ')' : ''}`));
           doubts.forEach(d => reasons.push(d));
           while (o.rawLines.length && o.rawLines[o.rawLines.length - 1] === '') o.rawLines.pop();
-          return { partyText, party, items, chatter: o.chatter, codeOnly: reasons.length === 0, reasons, text: o.rawLines.join('\n') };
+          return { partyText, party, items, chatter: o.chatter, codeOnly: reasons.length === 0, reasons, text: o.rawLines.join('\n'), delivery: o.delivery || '' };
         });
       }
 
@@ -2710,7 +2865,7 @@
         return [...groups.values()];
       }
 
-      return { parse, matchSpec, matchParty, normText, extractQty, findDuplicates };
+      return { parse, matchSpec, matchParty, normText, extractQty, findDuplicates, deliveryOf };
     }
     return { createParser };
   })();
@@ -2730,7 +2885,7 @@
       ? { raw_product: i.raw, canonical_product: i.product.name, is_new_product: false, qty: i.qty, qty_in_kg: !!i.kg }
       : { raw_product: i.read || i.raw, canonical_product: null, is_new_product: true, qty: i.qty || '', qty_in_kg: false,
           review_why: `"${i.raw}": ${i.why}` + (i.candidates && i.candidates.length ? ` - could be ${i.candidates.join(' / ')}` : '') });
-    return { raw_name: r.partyText, canonical, route: null, is_new: isNew, check_party: checkParty, items };
+    return { raw_name: r.partyText, canonical, route: null, is_new: isNew, check_party: checkParty, items, delivery: r.delivery || '' };
   }
 
   // jump to Party Master / Item Master with the text searched, and ready in the "add new" box
@@ -3050,6 +3205,78 @@
     return tr;
   }
 
+  // ================= v5.7: delivery locations =================
+  // "site at Kallara" / "delivery to Kallara" in an order = that party's order for that place. Each party can
+  // remember its locations {name, tab, possibleRoutes, aliases}; a known location's TAB decides where the block
+  // is filed and its ROUTES go in column B. A new location (or one without a tab or routes) comes up orange
+  // and Save flagged remembers it under the party.
+  const titlePlace = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  const locComplete = l => !!(l && l.tab && (l.possibleRoutes || []).length);
+  function findLocation(party, place) {
+    const n = normalize(place); if (!party || !n) return null;
+    return (party.locations || []).find(l => normalize(l.name) === n || (l.aliases || []).some(a => normalize(a) === n)) || null;
+  }
+  // what the delivery row should show for this party now: a complete known location files the block;
+  // anything else stays orange, keeping whatever tab / routes were already picked on screen
+  function resolveDelivery(party, d) {
+    const loc = party ? (findLocation(party, d.place) || findLocation(party, d.rawPlace)) : null;
+    if (locComplete(loc)) return { place: loc.name, rawPlace: d.rawPlace || d.place, tab: loc.tab, possibleRoutes: loc.possibleRoutes.slice(), known: true, flagged: false };
+    return { place: loc ? loc.name : titlePlace(d.place), rawPlace: d.rawPlace || d.place, tab: d.tab || (loc && loc.tab) || '',
+      possibleRoutes: (d.possibleRoutes && d.possibleRoutes.length) ? d.possibleRoutes.slice() : (loc ? (loc.possibleRoutes || []).slice() : []), known: !!loc, flagged: true };
+  }
+  // the party name of the block a row sits in
+  function blockPartyName(tr) {
+    let n = tr.previousElementSibling;
+    while (n && !n.classList.contains('oea-party-row') && !n.classList.contains('oea-date-row') && !n.classList.contains('oea-route-header')) n = n.previousElementSibling;
+    return n && n.classList.contains('oea-party-row') ? (n.querySelector('input[data-field="party"]').value || '').trim() : '';
+  }
+  const placeOfRow = tr => ((tr.querySelector('input[data-field="place"]') || {}).value || '').trim();
+  function readDeliveryRow(tr) {
+    const sel = tr.querySelector('[data-field="loctab"]'); let pr = [];
+    try { pr = JSON.parse(tr.dataset.possibleRoutes || '[]'); } catch (e) {}
+    return { place: placeOfRow(tr), rawPlace: tr.dataset.rawPlace || '', tab: sel ? sel.value : '', possibleRoutes: pr, known: tr.dataset.known === '1', flagged: tr.dataset.flagged === '1' };
+  }
+  function deliveryAttention() {
+    return Array.from(document.querySelectorAll('#oea-result-body tr.oea-delivery-row[data-flagged="1"]'))
+      .map(tr => `${blockPartyName(tr) || '(no party)'} — delivery to ${placeOfRow(tr).toUpperCase() || '?'}: set its tab and routes`);
+  }
+  function buildDeliveryRow(d) {
+    const tr = document.createElement('tr'); tr.className = 'oea-delivery-row';
+    tr.dataset.rawPlace = d.rawPlace || d.place || '';
+    if (d.known) tr.dataset.known = '1';
+    const td = document.createElement('td'); td.colSpan = d.flagged ? 4 : TABLE_COLS;
+    const wrap = document.createElement('div'); wrap.className = 'oea-deliv-cell';
+    const lab = document.createElement('span'); lab.className = 'oea-deliv-label'; lab.textContent = 'Delivery -';
+    const inp = document.createElement('input'); inp.dataset.field = 'place'; inp.value = d.place || '';
+    inp.title = 'Where this order goes - the party stays the party. Fix the spelling here if needed.';
+    inp.addEventListener('change', () => { inp.value = titlePlace(inp.value); regroupTable(); });
+    wrap.appendChild(lab); wrap.appendChild(inp);
+    if (!d.flagged) { const info = document.createElement('span'); info.className = 'oea-deliv-info'; info.textContent = `→ ${d.tab} · routes ${(d.possibleRoutes || []).join(', ')}`; wrap.appendChild(info); }
+    td.appendChild(wrap); tr.appendChild(td);
+    if (d.flagged) {
+      tr.classList.add('oea-flagged'); tr.dataset.flagged = '1';
+      const arr = (d.possibleRoutes || []).slice(); tr.dataset.possibleRoutes = JSON.stringify(arr);
+      const lbl = document.createElement('div'); lbl.className = 'oea-rpill-label'; lbl.style.marginTop = '4px';
+      lbl.textContent = `Possible routes for ${d.place || 'this location'} (pick at least one):`;
+      let picker = null;
+      picker = buildPossibleRoutesPicker(arr, () => { tr.dataset.possibleRoutes = JSON.stringify(arr); if (picker) picker.wrap.style.outline = ''; });
+      td.appendChild(lbl); td.appendChild(picker.wrap);
+      const tabTd = document.createElement('td'); tabTd.colSpan = 2;
+      const sel = document.createElement('select'); sel.dataset.field = 'loctab';
+      sel.title = 'The g-sheet tab orders for this delivery location go under';
+      sel.style.cssText = 'width:100%;border:1px solid var(--line);background:var(--field);font-family:inherit;font-size:13.5px;padding:3px;border-radius:4px;';
+      const blank = document.createElement('option'); blank.value = ''; blank.textContent = '— tab for this place —'; sel.appendChild(blank);
+      allRoutes().forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); });
+      sel.value = d.tab || '';
+      sel.addEventListener('change', () => { sel.style.outline = ''; });
+      tabTd.appendChild(sel); tr.appendChild(tabTd);
+      const flagTd = document.createElement('td');
+      flagTd.innerHTML = `<span class="oea-flag-tag">${d.known ? 'SET TAB &amp; ROUTES' : 'NEW LOCATION'}</span>`;
+      tr.appendChild(flagTd);
+    }
+    return tr;
+  }
+
   // an orange item row stops being orange as soon as its name is a product (or alias) in the
   // Master List - after typing the right name, or after adding the product / alias in Item Master.
   function clearItemFlagIfKnown(tr, learnWording) {
@@ -3113,6 +3340,7 @@
     if (parties) bits.push(`${parties} party name(s) need checking or a route`);
     if (items) bits.push(`${items} item(s) not in master list`);
     if (kg) bits.push(`${kg} kg order(s) on an item without Bundle ticked — check the qty`);
+    deliveryAttention().forEach(t => bits.push(t));
     sum.textContent = bits.length ? bits.join(' · ') : 'Nothing needs attention.';
     sum.style.color = bits.length ? 'var(--flag)' : 'var(--ink-soft)';
   }
@@ -3208,14 +3436,17 @@
     return { product: displayName, qty, weight: prodInfo ? (prodInfo.weight||'') : '', totalwt: '', isNewProduct, rawProduct, convertedFromKg, correctedBySignature, correctedByWordMatch, kgCheck, reviewWhy };
   }
 
-  function findMatchingBlockEnd(header, date, partyName) {
+  // same date + same party + same delivery location (or none) = the same block; with / without a location,
+  // or two different locations, are never merged
+  function findMatchingBlockEnd(header, date, partyName, place) {
     let node = header.nextElementSibling;
-    let curDate = null, curParty = null, matchLast = null;
+    let curDate = null, curParty = null, curPlace = '', matchLast = null;
     while (node && !node.classList.contains('oea-route-header')) {
-      if (node.classList.contains('oea-date-row')) { curDate = node.dataset.sent ? null : node.querySelector('input').value; curParty = null; } // a sent block takes no new lines
-      else if (node.classList.contains('oea-party-row')) { curParty = node.querySelector('input[data-field="party"]').value; }
+      if (node.classList.contains('oea-date-row')) { curDate = node.dataset.sent ? null : node.querySelector('input').value; curParty = null; curPlace = ''; } // a sent block takes no new lines
+      else if (node.classList.contains('oea-party-row')) { curParty = node.querySelector('input[data-field="party"]').value; curPlace = ''; }
+      else if (node.classList.contains('oea-delivery-row')) { curPlace = normalize(placeOfRow(node)); }
       else if (node.classList.contains('oea-item-row')) {
-        if (curDate !== null && curDate === date && normalize(curParty) === normalize(partyName)) matchLast = node;
+        if (curDate !== null && curDate === date && normalize(curParty) === normalize(partyName) && curPlace === normalize(place || '')) matchLast = node;
       }
       node = node.nextElementSibling;
     }
@@ -3240,7 +3471,15 @@
       // flagged parties" to pick up.
       if (!isNew && !canonical) isNew = true;
       if (party.check_party) isNew = true;       // a party the code isn't sure of is checked like a new one
-      const groupKey = isNew || needsRoute || !route ? 'NEEDS REVIEW' : route;
+      // a delivery location files the block under the LOCATION's tab, not the party's
+      let delivery = null;
+      if (party.delivery) {
+        const knownParty = !isNew && canonical ? findPartyByName(canonical) : null;
+        delivery = resolveDelivery(knownParty, { place: party.delivery, rawPlace: party.delivery });
+        needsRoute = false;
+        if (!delivery.flagged) route = delivery.tab;
+      }
+      const groupKey = isNew || needsRoute || !route || (delivery && delivery.flagged) ? 'NEEDS REVIEW' : route;
       if (!groups[groupKey]) groups[groupKey] = [];
       groups[groupKey].push({
         rawName: party.raw_name || '',
@@ -3249,6 +3488,7 @@
         route: route || '',
         isNew: !!isNew,
         needsRoute: !!needsRoute,
+        delivery,
         items: (party.items && party.items.length) ? party.items : [{raw_product:'',qty:''}]
       });
     });
@@ -3263,14 +3503,14 @@
         const itemRows = resolvedItems.map(buildItemRow);
         resolvedItems.forEach(it => { if (it.isNewProduct) flaggedItems++; if (it.kgCheck) kgChecks++; });
         if (partyBlock.isNew || partyBlock.needsRoute) flaggedParties++;
-        const existingLastItem = findMatchingBlockEnd(header, date, partyBlock.party);
+        const existingLastItem = findMatchingBlockEnd(header, date, partyBlock.party, partyBlock.delivery ? partyBlock.delivery.place : '');
         if (existingLastItem) {
           // same date + same party already in the table: append these items to that block instead of a new one
           let insertPoint = existingLastItem.nextSibling;
           itemRows.forEach(r => body.insertBefore(r, insertPoint));
           mergedIntoExisting++;
         } else {
-          const rows = [buildDateRow(date), buildPartyRow(partyBlock), ...itemRows];
+          const rows = [buildDateRow(date), buildPartyRow(partyBlock), ...(partyBlock.delivery ? [buildDeliveryRow(partyBlock.delivery)] : []), ...itemRows];
           appendRowsAfterHeader(body, header, rows);
           newBlocks++;
         }
@@ -3285,10 +3525,11 @@
     if (flaggedParties) bits.push(`${flaggedParties} party name(s) need a route`);
     if (flaggedItems) bits.push(`${flaggedItems} item(s) not in master list`);
     if (kgChecks) bits.push(`${kgChecks} kg order(s) on an item without Bundle ticked — check the qty`);
+    const locBits = deliveryAttention(); locBits.forEach(t => bits.push(t));
     const summary = $('oea-review-summary');
     if (summary) {
       summary.textContent = bits.length ? bits.join(' · ') : 'Nothing needs attention.';
-      summary.style.color = (flaggedParties || flaggedItems || mergedIntoExisting || kgChecks) ? 'var(--flag)' : 'var(--ink-soft)';
+      summary.style.color = (flaggedParties || flaggedItems || mergedIntoExisting || kgChecks || locBits.length) ? 'var(--flag)' : 'var(--ink-soft)';
       summary.style.display = 'block';
     }
     scheduleAutosave();
@@ -3305,8 +3546,21 @@
       if (party && !route) { missingRoute.push(party); if (routeInput) routeInput.style.outline = '2px solid var(--flag)'; }
       else if (routeInput) routeInput.style.outline = '';
     });
-    if (missingRoute.length) {
-      $('oea-copy-status').textContent = `⚠ Route needed before saving: ${missingRoute.join(', ')}. Fill the Route box on the highlighted row(s) — without it the order can't be filed under the right tab.`;
+    // a delivery location needs its own tab AND at least one possible route before it can be remembered
+    const missingLoc = [];
+    document.querySelectorAll('#oea-result-body tr.oea-delivery-row[data-flagged="1"]').forEach(tr => {
+      const place = placeOfRow(tr), sel = tr.querySelector('[data-field="loctab"]'), tab = sel ? sel.value : '';
+      let pr = []; try { pr = JSON.parse(tr.dataset.possibleRoutes || '[]'); } catch (e) {}
+      const picker = tr.querySelector('.oea-route-picker');
+      if (sel) sel.style.outline = tab ? '' : '2px solid var(--flag)';
+      if (picker) picker.style.outline = pr.length ? '' : '2px solid var(--flag)';
+      if (!place || !tab || !pr.length) missingLoc.push(`${blockPartyName(tr) || '(no party)'} — delivery to ${place.toUpperCase() || '?'}: set its ${!place ? 'place name' : !tab && !pr.length ? 'tab and routes' : !tab ? 'tab' : 'routes'}`);
+    });
+    if (missingRoute.length || missingLoc.length) {
+      const bits = [];
+      if (missingRoute.length) bits.push(`Route needed before saving: ${missingRoute.join(', ')}. Fill the Route box on the highlighted row(s) — without it the order can't be filed under the right tab.`);
+      if (missingLoc.length) bits.push(missingLoc.join(' · ') + '.');
+      $('oea-copy-status').textContent = '⚠ ' + bits.join(' ');
       $('oea-copy-status').style.color = 'var(--flag)';
       return;
     }
@@ -3344,6 +3598,22 @@
       master.parties.push({name: party, route, aliases, possibleRoutes});
       addedParties++;
     });
+    // delivery locations: remembered under the party (its name + tab + routes; the order's spelling as a variant)
+    let addedLocs = 0, updatedLocs = 0; const locNoParty = [];
+    document.querySelectorAll('#oea-result-body tr.oea-delivery-row[data-flagged="1"]').forEach(tr => {
+      const pname = blockPartyName(tr), p = pname ? (findPartyByName(pname) || findPartyByNameOrAlias(pname)) : null;
+      const place = titlePlace(placeOfRow(tr)), raw = titlePlace(tr.dataset.rawPlace || '');
+      const tab = tr.querySelector('[data-field="loctab"]').value;
+      let pr = []; try { pr = JSON.parse(tr.dataset.possibleRoutes || '[]'); } catch (e) {}
+      if (!p) { locNoParty.push(`${pname || '(no party)'} — ${place}`); return; }
+      p.locations = p.locations || [];
+      let loc = findLocation(p, place) || findLocation(p, raw);
+      if (loc) { loc.tab = tab; loc.possibleRoutes = pr.slice(); updatedLocs++; }
+      else { loc = { name: place, tab, possibleRoutes: pr.slice(), aliases: [] }; p.locations.push(loc); addedLocs++; }
+      loc.aliases = loc.aliases || [];
+      [place, raw].forEach(t => { if (t && normalize(t) !== normalize(loc.name) && !loc.aliases.some(a => normalize(a) === normalize(t))) loc.aliases.push(t); });
+      changed = true;
+    });
     let mergedAliases = 0;
     document.querySelectorAll('#oea-result-body tr.oea-item-row[data-new-product="1"]').forEach(tr => {
       const prodInput = tr.querySelector('input[data-field="product"]');
@@ -3375,6 +3645,8 @@
     msg += `, and ${mergedAliases} item name variant(s) recorded.`;
     if (partyAliases) msg += ` ${partyAliases} party name variant(s) recorded.`;
     if (skippedChecks) msg += ` ${skippedChecks} orange CHECK item(s) left as they are - type the correct item name first.`;
+    if (addedLocs || updatedLocs) msg += ` ${addedLocs + updatedLocs} delivery location(s) remembered with their tab and routes.`;
+    if (locNoParty.length) msg += ` Delivery location not saved - its party is not in the Master List yet: ${locNoParty.join(', ')}.`;
     if (regrouped) msg += ` Moved ${regrouped} block(s) into their route section.`;
     $('oea-copy-status').textContent = msg;
   });
@@ -3409,6 +3681,10 @@
         const routeInput = tr.querySelector('[data-field="route"]');
         current.route = routeInput ? routeInput.value.trim() : '';
         try { current.possibleRoutes = JSON.parse(tr.dataset.possibleRoutes || '[]'); } catch(e) { current.possibleRoutes = []; }
+      } else if (tr.classList.contains('oea-delivery-row')) {
+        if (!current) return;
+        current.delivery = readDeliveryRow(tr);
+        if (tr.dataset.flagged === '1') current.wasFlagged = true;
       } else if (tr.classList.contains('oea-item-row')) {
         if (!current) return;
         const item = { isNewProduct: tr.dataset.newProduct === '1', rawProduct: tr.dataset.rawProduct || '', convertedFromKg: tr.dataset.convertedFromKg === '1', correctedBySignature: tr.dataset.correctedBySignature === '1', correctedByWordMatch: tr.dataset.correctedByWordMatch === '1', kgCheck: tr.dataset.kgCheck === '1', reviewWhy: tr.dataset.reviewWhy || '' };
@@ -3437,14 +3713,19 @@
         b.isNew = true;
         b.needsRoute = false;
       }
-      if (b.wasFlagged && !b.isNew && !b.needsRoute) movedCount++;
+      if (b.delivery) {
+        b.delivery = resolveDelivery(b.isNew ? null : known, b.delivery);
+        b.needsRoute = false;
+        if (!b.delivery.flagged) b.route = b.delivery.tab;
+      }
+      if (b.wasFlagged && !b.isNew && !b.needsRoute && !(b.delivery && b.delivery.flagged)) movedCount++;
     });
 
     // rebuild the table grouped by resolved route
     body.innerHTML = '';
     const grouped = {};
     blocks.forEach(b => {
-      const key = b.isNew || b.needsRoute || !b.route ? 'NEEDS REVIEW' : b.route;
+      const key = b.isNew || b.needsRoute || !b.route || (b.delivery && b.delivery.flagged) ? 'NEEDS REVIEW' : b.route;
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(b);
     });
@@ -3463,6 +3744,7 @@
       grouped[routeKey].sort((a, b) => (isNaN(a.seq) ? Infinity : a.seq) - (isNaN(b.seq) ? Infinity : b.seq));
       grouped[routeKey].forEach(b => {
         const rows = [buildDateRow(b.date, b.seq), buildPartyRow({ party: b.party, isNew: b.isNew, needsRoute: b.needsRoute, rawName: b.rawName, route: b.route, possibleRoutes: b.possibleRoutes, checkParty: b.checkParty })];
+        if (b.delivery) rows.push(buildDeliveryRow(b.delivery));
         b.items.forEach(item => rows.push(buildItemRow(item)));
         appendRowsAfterHeader(body, header, rows);
         if (b.sent) markSent(rows[0], b.sent);
@@ -3503,16 +3785,23 @@
     return `${d}-${m}-${y}`;
   }
 
+  // column B: the party's possible routes - or, for an order to a delivery location, the LOCATION's routes
+  function routesFor(partyName, place) {
+    const known = findPartyByName(partyName) || findPartyByNameOrAlias(partyName);
+    if (!place) return known ? (known.possibleRoutes || []).join(', ') : '';
+    const loc = known ? findLocation(known, place) : null;
+    return loc ? (loc.possibleRoutes || []).join(', ') : '';
+  }
   function collectAllRows() {
-    const rows = []; let currentRoute = '', currentDate = '', currentParty = '';
+    const rows = []; let currentRoute = '', currentDate = '', currentParty = '', currentPlace = '';
     document.querySelectorAll('#oea-result-body tr').forEach(tr => {
       if (tr.classList.contains('oea-route-header')) { currentRoute = tr.dataset.route; return; }
-      if (tr.classList.contains('oea-date-row')) { currentDate = formatDateForCopy(tr.querySelector('input').value); return; }
-      if (tr.classList.contains('oea-party-row')) { currentParty = tr.querySelector('input[data-field="party"]').value; return; }
+      if (tr.classList.contains('oea-date-row')) { currentDate = formatDateForCopy(tr.querySelector('input').value); currentPlace = ''; return; }
+      if (tr.classList.contains('oea-party-row')) { currentParty = tr.querySelector('input[data-field="party"]').value; currentPlace = ''; return; }
+      if (tr.classList.contains('oea-delivery-row')) { currentPlace = placeOfRow(tr); return; }
       if (tr.classList.contains('oea-item-row')) {
-        const known = findPartyByName(currentParty);
-        const row = {route: currentRoute, date: currentDate, party: currentParty,
-          possibleRoutes: known ? (known.possibleRoutes||[]).join(', ') : ''};
+        const row = {route: currentRoute, date: currentDate, party: currentParty, delivery: currentPlace,
+          possibleRoutes: routesFor(currentParty, currentPlace)};
         tr.querySelectorAll('input').forEach(inp => row[inp.dataset.field] = inp.value);
         rows.push(row);
       }
@@ -3522,27 +3811,31 @@
 
   $('oea-copy-flat-btn').addEventListener('click', () => {
     const rows = collectAllRows();
-    const plain = rows.map(r => [r.date,r.possibleRoutes,r.party,r.product,r.qty,r.weight,r.totalwt].join('\t')).join('\n');
-    const htmlRows = rows.map(r => rowHtml([r.date,r.possibleRoutes,r.party,r.product,r.qty,r.weight,r.totalwt], [2])); // column 2 = party, bold
+    // an order to a delivery location carries "Delivery - <place>" in an extra column at the end
+    const cells = r => { const c = [r.date,r.possibleRoutes,r.party,r.product,r.qty,r.weight,r.totalwt]; if (r.delivery) c.push('Delivery - ' + r.delivery); return c; };
+    const plain = rows.map(r => cells(r).join('\t')).join('\n');
+    const htmlRows = rows.map(r => rowHtml(cells(r), [2])); // column 2 = party, bold
     copyRich(plain, htmlRows);
   });
 
   async function copyGroupLedger(routeKey) {
     const rows = collectAllRows().filter(r => r.route === routeKey);
     const plainBlocks = [], htmlRows = [];
-    let currentParty = null, currentDate = null, currentPossible = '', buffer = [];
+    let currentParty = null, currentDate = null, currentPlace = null, currentPossible = '', buffer = [];
     function flush() {
       if (!buffer.length) return;
       plainBlocks.push([currentDate,'','','','',''].join('\t'));
       plainBlocks.push(['',currentPossible,currentParty,'','',''].join('\t'));
+      if (currentPlace) plainBlocks.push(['','','Delivery - ' + currentPlace,'','',''].join('\t'));   // only when the order names a location
       buffer.forEach(r => plainBlocks.push(['','',r.product,r.qty,r.weight,r.totalwt].join('\t')));
 
       htmlRows.push(rowHtml([currentDate,'','','','',''], [0]));             // date bold
       htmlRows.push(rowHtml(['',currentPossible,currentParty,'','',''], [2])); // party name bold
+      if (currentPlace) htmlRows.push(rowHtml(['','','Delivery - ' + currentPlace,'','',''], []));
       buffer.forEach(r => htmlRows.push(rowHtml(['','',r.product,r.qty,r.weight,r.totalwt], [])));
       buffer = [];
     }
-    rows.forEach(r => { if (r.party !== currentParty || r.date !== currentDate) { flush(); currentParty = r.party; currentDate = r.date; currentPossible = r.possibleRoutes || ''; } buffer.push(r); });
+    rows.forEach(r => { if (r.party !== currentParty || r.date !== currentDate || (r.delivery || '') !== currentPlace) { flush(); currentParty = r.party; currentDate = r.date; currentPlace = r.delivery || ''; currentPossible = r.possibleRoutes || ''; } buffer.push(r); });
     flush();
     const ok = await copyRich(plainBlocks.join('\n'), htmlRows);
     if (ok && routeKey === 'NEEDS REVIEW') {
@@ -3615,9 +3908,12 @@
       const rows = blockRows(d), h = headerOf(d), tab = h ? h.dataset.route : '';
       const pr = rows.find(r => r.classList.contains('oea-party-row'));
       const party = pr ? (pr.querySelector('input[data-field="party"]').value || '').trim() : '';
-      const items = rows.filter(r => r.classList.contains('oea-item-row'));
+      const items = rows.filter(r => r.classList.contains('oea-item-row'));     // item lines only (not the delivery row)
       const name = party || '(no party name)';
-      if (tab === 'NEEDS REVIEW') out.problems.push(`${name}: still under NEEDS REVIEW - give it a tab and Save flagged`);
+      const dr = rows.find(r => r.classList.contains('oea-delivery-row')), place = dr ? placeOfRow(dr) : '';
+      const locProblem = dr && (dr.dataset.flagged === '1' || !place);
+      if (locProblem) out.problems.push(`${name} — delivery to ${place.toUpperCase() || '?'}: set its tab and routes, then Save flagged`);
+      if (tab === 'NEEDS REVIEW' && !(locProblem && pr && !pr.classList.contains('oea-flagged'))) out.problems.push(`${name}: still under NEEDS REVIEW - give it a tab and Save flagged`);
       else if (!party) out.problems.push(`a block under ${tab} has no party name`);
       else if (pr && pr.classList.contains('oea-flagged')) out.problems.push(`${name}: orange party row`);
       if (!items.length) out.problems.push(`${name}: no item lines`);
@@ -3628,15 +3924,15 @@
         else if (!prod) out.problems.push(`${name}: a line with no item name`);
         else if (!qty || isNaN(parseNum(qty))) out.problems.push(`${name}: "${prod}" has no qty`);
       });
-      out.blocks.push({ d, tab, party, items });
+      out.blocks.push({ d, tab, party, items, place });
     });
     return out;
   }
   function ledgerText(b) {
     const date = formatDateForCopy(b.d.querySelector('input').value);
-    const known = findPartyByName(b.party);
-    const possible = known ? (known.possibleRoutes || []).join(', ') : '';
+    const possible = routesFor(b.party, b.place);
     const L = [[date, '', '', '', '', ''].join('\t'), ['', possible, b.party, '', '', ''].join('\t')];
+    if (b.place) L.push(['', '', 'Delivery - ' + b.place, '', '', ''].join('\t'));       // only when the order names a location
     b.items.forEach(it => { const v = f => ((it.querySelector(`input[data-field="${f}"]`) || {}).value || '').trim();
       L.push(['', '', v('product'), v('qty'), v('weight'), v('totalwt')].join('\t')); });
     return L.join('\n');
@@ -3714,6 +4010,8 @@
         cur.isNew = tr.dataset.newParty === '1'; cur.needsRoute = tr.dataset.needsRoute === '1';
         const ri = tr.querySelector('[data-field="route"]'); cur.route = ri ? ri.value : '';
         try { cur.possibleRoutes = JSON.parse(tr.dataset.possibleRoutes || '[]'); } catch (e) { cur.possibleRoutes = []; }
+      } else if (tr.classList.contains('oea-delivery-row')) {
+        cur.delivery = readDeliveryRow(tr);
       } else if (tr.classList.contains('oea-item-row')) {
         const item = { isNewProduct: tr.dataset.newProduct === '1', rawProduct: tr.dataset.rawProduct || '', convertedFromKg: tr.dataset.convertedFromKg === '1', correctedBySignature: tr.dataset.correctedBySignature === '1', correctedByWordMatch: tr.dataset.correctedByWordMatch === '1', kgCheck: tr.dataset.kgCheck === '1', reviewWhy: tr.dataset.reviewWhy || '' };
         tr.querySelectorAll('input').forEach(inp => item[inp.dataset.field] = inp.value);
@@ -3743,10 +4041,12 @@
         const header = ensureRouteHeader(body, b.under || 'NEEDS REVIEW');
         const dateTr = buildDateRow(b.date, b.seq);
         const rows = [dateTr, buildPartyRow({ party: b.party, isNew: b.isNew, needsRoute: b.needsRoute, rawName: b.rawName, route: b.route, possibleRoutes: b.possibleRoutes, checkParty: b.checkParty })];
+        if (b.delivery) rows.push(buildDeliveryRow(b.delivery));
+        const firstItem = rows.length;
         (b.items || []).forEach(it => rows.push(buildItemRow(it)));
         appendRowsAfterHeader(body, header, rows);
         // values exactly as they were (not recomputed), then the sent lock
-        rows.slice(2).forEach((tr, i) => { const it = b.items[i]; ['product', 'qty', 'weight', 'totalwt'].forEach(f => { const x = tr.querySelector(`input[data-field="${f}"]`); if (x && it[f] != null) x.value = it[f]; }); });
+        rows.slice(firstItem).forEach((tr, i) => { const it = b.items[i]; ['product', 'qty', 'weight', 'totalwt'].forEach(f => { const x = tr.querySelector(`input[data-field="${f}"]`); if (x && it[f] != null) x.value = it[f]; }); });
         if (b.sent) markSent(dateTr, b.sent);
       });
       (snap.copied || []).forEach(rt => { const h = Array.from(body.querySelectorAll('tr.oea-route-header')).find(x => x.dataset.route === rt);
@@ -3758,7 +4058,7 @@
     } finally { restoring = false; }
   }
   // any change to the table is kept: rows added, moved or removed, and anything typed
-  new MutationObserver(saveTableSoon).observe($('oea-result-body'), { childList: true, subtree: true, attributes: true, attributeFilter: ['data-sent', 'data-copied', 'data-new-party', 'data-needs-route', 'data-new-product', 'data-kg-check', 'data-possible-routes'] });
+  new MutationObserver(saveTableSoon).observe($('oea-result-body'), { childList: true, subtree: true, attributes: true, attributeFilter: ['data-sent', 'data-copied', 'data-new-party', 'data-needs-route', 'data-new-product', 'data-kg-check', 'data-possible-routes', 'data-flagged'] });
   $('oea-result-body').addEventListener('input', saveTableSoon);
   $('oea-result-body').addEventListener('change', saveTableSoon);
   otsSeen();
