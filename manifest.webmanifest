@@ -1,0 +1,16 @@
+{
+  "name": "Order to Sheet — Jain Wire Netting Corporation",
+  "short_name": "Order to Sheet",
+  "description": "Reads WhatsApp orders and sends them to the Google Sheet and Logistics Desk — Jain Wire Netting Corporation",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e8f0fa",
+  "theme_color": "#1b5fa8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

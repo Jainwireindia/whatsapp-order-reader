@@ -3,6 +3,10 @@
      When syncing another copy of this tool, compare these version numbers first. -->
 <meta charset="utf-8">
 <title>Order to Sheet</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1b5fa8">
 <style>
   /* Light coffee theme. Rust (--flag) is kept only for things that need your attention. */
   :root {
@@ -536,7 +540,7 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8';
+  const TOOL_VERSION = 'v5.8.1';
   const TOOL_VERSION_DATE = '2026-10-18';
 
   const $ = id => document.getElementById(id);
