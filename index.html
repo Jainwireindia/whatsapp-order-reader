@@ -540,8 +540,8 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8.1';
-  const TOOL_VERSION_DATE = '2026-10-18';
+  const TOOL_VERSION = 'v5.8.2';
+  const TOOL_VERSION_DATE = '2026-10-22';
 
   const $ = id => document.getElementById(id);
 
@@ -2560,7 +2560,15 @@
         if (!n) return { kind: 'blank', n };
         const words = (n.match(/[a-z]+/g) || []).filter(w => !STOP_WORDS.has(w)).map(stem).map(fixWord);
         const hasDigit = /\d/.test(n);
-        if (!hasDigit && words.length && words.some(w => CHATTER.has(w)) && words.filter(w => vocab.has(w)).length === 0) return { kind: 'chatter', n };
+        if (!hasDigit && words.length && words.some(w => CHATTER.has(w)) && words.filter(w => vocab.has(w)).length === 0) {
+          // "New Hardware Erattupetta": "new" is a chat word, but the line is a shop name when it has a shop word
+          // (hardware, traders…), a place name, or is exactly a known party - only then is it not chatter
+          const shopLike = words.some(w => !CHATTER.has(w) && (PARTY_GENERIC.has(w) || placeSet.has(skel(w))));
+          const pm0 = matchParty(raw);
+          // only rescued when the party's own place is in the line too - "New Hardware Pala" stays flagged
+          // rather than silently becoming NEW HARDWARE ERATTUPETTA
+          if (!(pm0.status === 'match' && pm0.placeMatched) && (!shopLike || pm0.status === 'match')) return { kind: 'chatter', n };
+        }
         // A shop name that contains a number ("12D CINEMAX THRISSUR") is a party, not an item line - but
         // only when it has no quantity, matches a known party, and every number-bearing word in it is
         // part of that party's own name/alias (so a size like "1x1x12x5" can never pass as a party).
