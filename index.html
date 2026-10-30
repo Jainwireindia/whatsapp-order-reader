@@ -540,7 +540,7 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8.2';
+  const TOOL_VERSION = 'v5.8.4';
   const TOOL_VERSION_DATE = '2026-10-22';
 
   const $ = id => document.getElementById(id);
@@ -2079,6 +2079,12 @@
     return master.parties.find(p => p !== except && normalize(p.name) === n)
       || master.parties.find(p => p !== except && (p.aliases||[]).some(a => normalize(a) === n)) || null;
   }
+  // the order's wording, only when it points at ONE party - the same alias on two parties settles nothing
+  function findPartyByWording(name) {
+    const n = normalize(name); if (!n) return null;
+    const own = master.parties.filter(p => normalize(p.name) === n || (p.aliases || []).some(a => normalize(a) === n));
+    return own.length === 1 ? own[0] : null;
+  }
   function findProductByNameOrAlias(name, except) {
     const n = normalize(name); if (!n) return null;
     return master.products.find(p => p !== except && normalize(p.name) === n)
@@ -2609,6 +2615,10 @@
       // it out lets a later bare "12x5" line slot back into the same place rather than tacking onto the end.
       const SHEET_PAIR = /(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)(?=(?:x|\s)\d+(?:\.\d+)?(?:mm|g|ft)\b)/;
       function splitSheetPair(t) {
+        // "1x1x5mm 12x5" / "40x40x4.1mmx12x5": the sheet size is the pair at the END, after the mm/gauge;
+        // the first pair there is the mesh itself (1x1, 40x40), so it must not be taken as the sheet size
+        const e = t.match(/(?<=\d(?:mm|g)[x\s])(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)\s*$/);
+        if (e) return { pre: t.slice(0, e.index), post: '' };
         const m = t.match(SHEET_PAIR);
         if (!m) return null;
         return { pre: t.slice(0, m.index), post: t.slice(m.index + m[0].length) };
@@ -3316,7 +3326,7 @@
   function clearPartyFlagIfKnown(tr, learnWording) {
     const inp = tr.querySelector('input[data-field="party"]');
     const raw = (tr.dataset.rawName || '').trim();
-    let p = raw ? findPartyByNameOrAlias(raw) : null;
+    let p = raw ? findPartyByWording(raw) : null;
     if (!p && learnWording && inp && inp.value.trim()) {
       p = findPartyByNameOrAlias(inp.value.trim());
       if (p && raw && normalize(raw) !== normalize(p.name) && !(p.aliases || []).some(a => normalize(a) === normalize(raw))) {
@@ -3331,7 +3341,7 @@
     let n = 0;
     document.querySelectorAll('#oea-result-body tr.oea-party-row.oea-flagged').forEach(tr => {
       // only when something changes: a new / unsure party now known, or a known party that now has its tab
-      const raw = (tr.dataset.rawName || '').trim(), p = raw ? findPartyByNameOrAlias(raw) : null;
+      const raw = (tr.dataset.rawName || '').trim(), p = raw ? findPartyByWording(raw) : null;
       if (p && (tr.dataset.newParty === '1' || p.route) && clearPartyFlagIfKnown(tr, false)) n++;
     });
     if (n) regroupTable();
@@ -3712,10 +3722,10 @@
     blocks.forEach(b => {
       // the order's own wording now being a party name or alias settles it (also an unsure "CHECK PARTY" row);
       // otherwise an unsure row stays for review, and anything else is looked up by the name in the box
-      const byRaw = b.rawName ? findPartyByNameOrAlias(b.rawName) : null;
+      const byRaw = b.rawName ? findPartyByWording(b.rawName) : null;
       let known = null;
       if (byRaw) { known = byRaw; b.checkParty = ''; }
-      else if (!b.checkParty) known = findPartyByName(b.party) || findPartyByNameOrAlias(b.party);
+      else if (!b.checkParty && !(b.rawName && normalize(b.rawName) === normalize(b.party))) known = findPartyByName(b.party) || findPartyByNameOrAlias(b.party);
       if (known) {
         b.party = known.name;
         b.route = known.route || '';
