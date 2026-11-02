@@ -3,10 +3,6 @@
      When syncing another copy of this tool, compare these version numbers first. -->
 <meta charset="utf-8">
 <title>Order to Sheet</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#1b5fa8">
 <style>
   /* Light coffee theme. Rust (--flag) is kept only for things that need your attention. */
   :root {
@@ -540,8 +536,8 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8.4';
-  const TOOL_VERSION_DATE = '2026-10-22';
+  const TOOL_VERSION = 'v5.8.1';
+  const TOOL_VERSION_DATE = '2026-10-18';
 
   const $ = id => document.getElementById(id);
 
@@ -787,7 +783,7 @@
 
   // v5.8: the words that introduce a delivery place are a word list in Setup (all locations). A list that has
   // never existed starts with these; after that it is only what is in Setup / the Sheet.
-  const STARTER_DELIVERY_WORDS = ['site at', 'delivery to', 'delivery location at', 'location at', 'delivery:', 'location -'];
+  const STARTER_DELIVERY_WORDS = ['site at', 'delivery to', 'delivery at', 'delivery location at', 'location at', 'delivery:', 'location -'];
   function seedDeliveryWords() { master.words = master.words || {}; if (!Array.isArray(master.words.delivery)) master.words.delivery = STARTER_DELIVERY_WORDS.slice(); }
 
   function storeNames() { return availableStores.map(s => s.label).join(', ') || 'none'; }
@@ -2079,12 +2075,6 @@
     return master.parties.find(p => p !== except && normalize(p.name) === n)
       || master.parties.find(p => p !== except && (p.aliases||[]).some(a => normalize(a) === n)) || null;
   }
-  // the order's wording, only when it points at ONE party - the same alias on two parties settles nothing
-  function findPartyByWording(name) {
-    const n = normalize(name); if (!n) return null;
-    const own = master.parties.filter(p => normalize(p.name) === n || (p.aliases || []).some(a => normalize(a) === n));
-    return own.length === 1 ? own[0] : null;
-  }
   function findProductByNameOrAlias(name, except) {
     const n = normalize(name); if (!n) return null;
     return master.products.find(p => p !== except && normalize(p.name) === n)
@@ -2566,15 +2556,7 @@
         if (!n) return { kind: 'blank', n };
         const words = (n.match(/[a-z]+/g) || []).filter(w => !STOP_WORDS.has(w)).map(stem).map(fixWord);
         const hasDigit = /\d/.test(n);
-        if (!hasDigit && words.length && words.some(w => CHATTER.has(w)) && words.filter(w => vocab.has(w)).length === 0) {
-          // "New Hardware Erattupetta": "new" is a chat word, but the line is a shop name when it has a shop word
-          // (hardware, traders…), a place name, or is exactly a known party - only then is it not chatter
-          const shopLike = words.some(w => !CHATTER.has(w) && (PARTY_GENERIC.has(w) || placeSet.has(skel(w))));
-          const pm0 = matchParty(raw);
-          // only rescued when the party's own place is in the line too - "New Hardware Pala" stays flagged
-          // rather than silently becoming NEW HARDWARE ERATTUPETTA
-          if (!(pm0.status === 'match' && pm0.placeMatched) && (!shopLike || pm0.status === 'match')) return { kind: 'chatter', n };
-        }
+        if (!hasDigit && words.length && words.some(w => CHATTER.has(w)) && words.filter(w => vocab.has(w)).length === 0) return { kind: 'chatter', n };
         // A shop name that contains a number ("12D CINEMAX THRISSUR") is a party, not an item line - but
         // only when it has no quantity, matches a known party, and every number-bearing word in it is
         // part of that party's own name/alias (so a size like "1x1x12x5" can never pass as a party).
@@ -2615,10 +2597,6 @@
       // it out lets a later bare "12x5" line slot back into the same place rather than tacking onto the end.
       const SHEET_PAIR = /(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)(?=(?:x|\s)\d+(?:\.\d+)?(?:mm|g|ft)\b)/;
       function splitSheetPair(t) {
-        // "1x1x5mm 12x5" / "40x40x4.1mmx12x5": the sheet size is the pair at the END, after the mm/gauge;
-        // the first pair there is the mesh itself (1x1, 40x40), so it must not be taken as the sheet size
-        const e = t.match(/(?<=\d(?:mm|g)[x\s])(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)\s*$/);
-        if (e) return { pre: t.slice(0, e.index), post: '' };
         const m = t.match(SHEET_PAIR);
         if (!m) return null;
         return { pre: t.slice(0, m.index), post: t.slice(m.index + m[0].length) };
@@ -2663,15 +2641,15 @@
           if (!words) return null;
           return { len: words.length, re: words.split(/\s+/).map(esc).join('\\s+') + '(?![a-z])' + (needSep ? '\\s*[-:–]' : '\\s*[-:–]?') };
         }).filter(Boolean).sort((a, b) => b.len - a.len).map(x => x.re);
-        return alts.length ? new RegExp('(^|[^a-z])(?:' + alts.join('|') + ')\\s*([a-z][a-z .\'&-]*?)[\\s.,;:*)-]*$', 'i') : null;
+        return alts.length ? new RegExp('(^|[^a-z])(?:' + alts.join('|') + ')\\s*([a-z][a-z0-9 .\'&/-]*?)[\\s.,;:*)-]*$', 'i') : null;
       })();
-      const placeCase = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+      const placeCase = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b\w*\d\w*\b/g, w => w.toUpperCase()); // 220kv -> 220KV
       function deliveryOf(raw) {
         if (!DELIVERY_AT) return null;
         const m = String(raw || '').match(DELIVERY_AT);
         if (!m) return null;
         const place = m[2].replace(/[\s.'&-]+$/, '').trim();
-        if (!place || place.split(/\s+/).length > 4) return null;
+        if (!place || place.split(/\s+/).length > 8) return null;
         return { place: placeCase(place), rest: String(raw).slice(0, m.index + m[1].length).replace(/[\s,:;*(-]+$/, '') };
       }
 
@@ -3232,7 +3210,7 @@
   // remember its locations {name, tab, possibleRoutes, aliases}; a known location's TAB decides where the block
   // is filed and its ROUTES go in column B. A new location (or one without a tab or routes) comes up orange
   // and Save flagged remembers it under the party.
-  const titlePlace = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  const titlePlace = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b\w*\d\w*\b/g, w => w.toUpperCase());
   const locComplete = l => !!(l && l.tab && (l.possibleRoutes || []).length);
   function findLocation(party, place) {
     const n = normalize(place); if (!party || !n) return null;
@@ -3326,7 +3304,7 @@
   function clearPartyFlagIfKnown(tr, learnWording) {
     const inp = tr.querySelector('input[data-field="party"]');
     const raw = (tr.dataset.rawName || '').trim();
-    let p = raw ? findPartyByWording(raw) : null;
+    let p = raw ? findPartyByNameOrAlias(raw) : null;
     if (!p && learnWording && inp && inp.value.trim()) {
       p = findPartyByNameOrAlias(inp.value.trim());
       if (p && raw && normalize(raw) !== normalize(p.name) && !(p.aliases || []).some(a => normalize(a) === normalize(raw))) {
@@ -3341,7 +3319,7 @@
     let n = 0;
     document.querySelectorAll('#oea-result-body tr.oea-party-row.oea-flagged').forEach(tr => {
       // only when something changes: a new / unsure party now known, or a known party that now has its tab
-      const raw = (tr.dataset.rawName || '').trim(), p = raw ? findPartyByWording(raw) : null;
+      const raw = (tr.dataset.rawName || '').trim(), p = raw ? findPartyByNameOrAlias(raw) : null;
       if (p && (tr.dataset.newParty === '1' || p.route) && clearPartyFlagIfKnown(tr, false)) n++;
     });
     if (n) regroupTable();
@@ -3722,10 +3700,10 @@
     blocks.forEach(b => {
       // the order's own wording now being a party name or alias settles it (also an unsure "CHECK PARTY" row);
       // otherwise an unsure row stays for review, and anything else is looked up by the name in the box
-      const byRaw = b.rawName ? findPartyByWording(b.rawName) : null;
+      const byRaw = b.rawName ? findPartyByNameOrAlias(b.rawName) : null;
       let known = null;
       if (byRaw) { known = byRaw; b.checkParty = ''; }
-      else if (!b.checkParty && !(b.rawName && normalize(b.rawName) === normalize(b.party))) known = findPartyByName(b.party) || findPartyByNameOrAlias(b.party);
+      else if (!b.checkParty) known = findPartyByName(b.party) || findPartyByNameOrAlias(b.party);
       if (known) {
         b.party = known.name;
         b.route = known.route || '';
