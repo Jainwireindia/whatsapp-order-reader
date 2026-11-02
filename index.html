@@ -536,7 +536,7 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8.1';
+  const TOOL_VERSION = 'v5.8.2';
   const TOOL_VERSION_DATE = '2026-10-18';
 
   const $ = id => document.getElementById(id);
@@ -783,7 +783,7 @@
 
   // v5.8: the words that introduce a delivery place are a word list in Setup (all locations). A list that has
   // never existed starts with these; after that it is only what is in Setup / the Sheet.
-  const STARTER_DELIVERY_WORDS = ['site at', 'delivery to', 'delivery at', 'delivery location at', 'location at', 'delivery:', 'location -'];
+  const STARTER_DELIVERY_WORDS = ['site at', 'delivery to', 'delivery at', 'delivery address', 'delivery location at', 'location at', 'delivery:', 'location -'];
   function seedDeliveryWords() { master.words = master.words || {}; if (!Array.isArray(master.words.delivery)) master.words.delivery = STARTER_DELIVERY_WORDS.slice(); }
 
   function storeNames() { return availableStores.map(s => s.label).join(', ') || 'none'; }
@@ -2312,6 +2312,7 @@
         .replace(/½/g, '1/2').replace(/¼/g, '1/4').replace(/¾/g, '3/4').replace(/⅛/g, '1/8');
       s = s.replace(/(\d)\s*\*\s*(?=\d)/g, '$1x');          // 1*1*10 -> 1x1x10 (multiply)
       s = s.replace(/\*/g, ' ');                              // remaining * are WhatsApp bold markers
+      s = s.replace(/_/g, ' ');                               // _ is WhatsApp's italic marker ("URGENT_", a lone "_")
       s = s.replace(/(\d)\s*(?:'|’|feet|foot|fts|ft)(?![a-z])/g, '$1ft');
       s = s.replace(/(\d)\s*(?:kgs|kg)\b/g, '$1kg');
       s = s.replace(/(\d)\s*(?:gauge|g)\b/g, '$1g');
@@ -2634,15 +2635,17 @@
       // party line) says where this order goes. It is not an item and not a new party; the party stays the party.
       // the words come from Setup → Delivery words ("site at", "delivery to", "delivery:" …); a word ending in
       // ":" or "-" needs the ":" or "-" written after it, so "delivery today" is not a place
-      const DELIVERY_AT = (() => {
+      const DELIVERY_ALTS = (() => {
         const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const alts = wl(W.delivery).map(w => {
+        return wl(W.delivery).map(w => {
           const needSep = /[-:–]\s*$/.test(w), words = w.replace(/[-:–\s]+$/, '').trim();
           if (!words) return null;
           return { len: words.length, re: words.split(/\s+/).map(esc).join('\\s+') + '(?![a-z])' + (needSep ? '\\s*[-:–]' : '\\s*[-:–]?') };
         }).filter(Boolean).sort((a, b) => b.len - a.len).map(x => x.re);
-        return alts.length ? new RegExp('(^|[^a-z])(?:' + alts.join('|') + ')\\s*([a-z][a-z0-9 .\'&/-]*?)[\\s.,;:*)-]*$', 'i') : null;
       })();
+      const DELIVERY_AT = DELIVERY_ALTS.length ? new RegExp('(^|[^a-z])(?:' + DELIVERY_ALTS.join('|') + ')\\s*([a-z][a-z0-9 .\'&/-]*?)[\\s.,;:*)-]*$', 'i') : null;
+      // v5.8.2: the word alone on its line ("DELIVERY ADDRESS") - the place is written on the lines under it
+      const DELIVERY_HEAD = DELIVERY_ALTS.length ? new RegExp('^[\\s*_]*(?:' + DELIVERY_ALTS.join('|') + ')[\\s*_:–-]*$', 'i') : null;
       const placeCase = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().replace(/(^|[\s(\/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b\w*\d\w*\b/g, w => w.toUpperCase()); // 220kv -> 220KV
       function deliveryOf(raw) {
         if (!DELIVERY_AT) return null;
@@ -2662,7 +2665,27 @@
         // line right above it, when that line has no quantity of its own yet.
         const BARE_QTY = /^\s*[-:=]?\s*\d+(?:\.\d+)?\s*(?:nos?|no\.|pcs?|pieces?|rolls?|bundles?|bdls?|bags?|kgs?)?\s*\.?\s*$/i;
         let prevBody = null;
+        let pw = null; // v5.8.2: place lines being collected under a "DELIVERY ADDRESS" heading
+        const finishPlace = () => {
+          const ls = pw.lines; pw = null;
+          const place = ls.join(' ').replace(/\s+/g, ' ').trim();
+          if (place && place.split(' ').length <= 8 && /[a-z]/i.test(place)) cur.delivery = placeCase(place);
+          else ls.forEach(l => readLine(l, l));   // not a place after all: read them as ordinary lines
+        };
         lines.forEach(fullRaw => {
+          if (pw) {
+            const t = fullRaw.trim();
+            if (!t) { if (pw.lines.length) finishPlace(); else cur.rawLines.push(''); return; }
+            if (pw.lines.length < 5 && !(DELIVERY_HEAD && DELIVERY_HEAD.test(fullRaw))) {
+              pw.lines.push(t.replace(/[\s*_,.;:]+$/, '')); cur.rawLines.push(fullRaw.replace(/\s+$/, '')); return;
+            }
+            finishPlace();                       // anything else ends the address; the line is read as usual below
+          }
+          if (DELIVERY_HEAD && DELIVERY_HEAD.test(fullRaw)) {
+            if (!cur) newOrder();
+            cur.rawLines.push(fullRaw.replace(/\s+$/, '')); prevBody = null; pw = { lines: [] };
+            return;
+          }
           // "site at Kallara" alone: belongs to the order it is written in; at the end of a line, the rest of the
           // line is read as usual first (a party line starts its order), then the place is put on that order
           const dl = deliveryOf(fullRaw);
@@ -2675,6 +2698,7 @@
           readLine(dl ? dl.rest : fullRaw, fullRaw);
           if (dl) { if (!cur) newOrder(); cur.delivery = dl.place; }
         });
+        if (pw) finishPlace();
         function readLine(raw, shownRaw) {
           if (prevBody && BARE_QTY.test(raw) && !extractQty(prevBody.n).qty && !extractQty(prevBody.n).multi) {
             const joined = /[-:=]\s*$/.test(prevBody.raw) ? prevBody.raw + ' ' + raw.trim().replace(/^[-:=]\s*/, '') : prevBody.raw + ' - ' + raw.trim().replace(/^[-:=]\s*/, '');
@@ -2689,7 +2713,7 @@
           if (c.kind === 'blank') { if (cur) cur.rawLines.push(''); return; }
           if (c.kind === 'party') {
             if (!cur || cur.body.length) newOrder();
-            cur.header.push(raw.replace(/[*:]/g, ' ').replace(/\s+/g, ' ').trim());
+            cur.header.push(raw.replace(/[*:_]/g, ' ').replace(/\s+/g, ' ').trim());
             cur.rawLines.push(shownRaw.replace(/\s+$/, ''));
             return;
           }
