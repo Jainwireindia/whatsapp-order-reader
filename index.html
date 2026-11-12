@@ -540,7 +540,7 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8.5';
+  const TOOL_VERSION = 'v5.8.6';
   const TOOL_VERSION_DATE = '2026-10-22';
 
   const $ = id => document.getElementById(id);
@@ -2617,8 +2617,8 @@
       function splitSheetPair(t) {
         // "1x1x5mm 12x5" / "40x40x4.1mmx12x5": the sheet size is the pair at the END, after the mm/gauge;
         // the first pair there is the mesh itself (1x1, 40x40), so it must not be taken as the sheet size
-        const e = t.match(/(?<=\d(?:mm|g)[x\s])(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)\s*$/);
-        if (e) return { pre: t.slice(0, e.index), post: '' };
+        const e = t.match(/(?<=[x\s])(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)\s*$/);   // (a word like lite/heavy may sit between the mm and the pair)
+        if (e && /\d(?:mm|g)/.test(t.slice(0, e.index))) return { pre: t.slice(0, e.index), post: '' };
         const m = t.match(SHEET_PAIR);
         if (!m) return null;
         return { pre: t.slice(0, m.index), post: t.slice(m.index + m[0].length) };
@@ -2831,7 +2831,7 @@
                 const ownRest = dropSize(pq.specText).trim();
                 const ownSize = pick.ctx && !own && /\d/.test(ownRest) && !/^\d+(?:\.\d+)?x\d+(?:\.\d+)?$/.test(ownRest);   // a bare sheet size "12x5" is not a new base
                 if (ownSize) { hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(pick.t); lastBase = baseOf(pick.t, sheetTpl); }
-                else if (!pick.ctx && ((pick.r.how !== 'name' && /\d/.test(pick.t) && parseSpec(pick.t).words.length + (pick.t.match(/\d/g) || []).length > 3) || newFamily)) {
+                else if (!pick.ctx && (((pick.r.how !== 'name' || /mmx\d+(?:\.\d+)?x\d+(?:\.\d+)?$/.test(pick.t)) && /\d/.test(pick.t) && parseSpec(pick.t).words.length + (pick.t.match(/\d/g) || []).length > 3) || newFamily)) {
                   // a full line of its own starts a new size group; if it had a length, the next "4ft : 2" reuses
                   // the rest, and if it had a sheet WxH pair, the next bare "12x5" slots into the same place
                   hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(pick.t); lastBase = baseOf(pick.t, sheetTpl);
