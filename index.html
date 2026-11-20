@@ -182,6 +182,25 @@
   .oea-routes-toggle { display:block; margin-top:3px; font-family:inherit; font-size:10.5px; color:var(--ink-soft); background:none; border:1px dashed var(--line); border-radius:8px; padding:1px 6px; cursor:pointer; }
   .oea-routes-toggle:hover { color:var(--accent); border-color:var(--accent); }
   .oea-status { font-size:14px; color:var(--ink-soft); margin:8px 0; }
+  /* a visible heading above every box, so nobody has to guess what goes in it */
+  .oea-field-label { display:block; font-size:13px; font-weight:700; color:var(--ink); margin:10px 0 4px; }
+  .oea-field-label .oea-field-hint { font-weight:400; color:var(--ink-soft); }
+  .oea-create-box { border:1px solid var(--line); border-radius:8px; padding:4px 12px 8px; margin:10px 0 6px; background:var(--chip); }
+  .oea-create-more { font-size:13px; color:var(--ink-soft); margin:2px 0 4px; }
+  .oea-create-more summary { cursor:pointer; font-weight:600; color:var(--accent-ink); padding:2px 0; }
+  .oea-create-more textarea { width:100%; box-sizing:border-box; min-height:58px; margin-top:6px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); color:var(--ink); font-family:inherit; font-size:14px; }
+  .oea-toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--panel); padding:9px 14px; border-radius:10px; font-size:14px; display:flex; gap:10px; align-items:center; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:60; max-width:92vw; box-shadow:0 4px 18px rgba(0,0,0,.25); }
+  .oea-toast.show { opacity:1; pointer-events:auto; transform:translateX(-50%); }
+  .oea-dup-group { border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:10px 0; }
+  .oea-dup-why { font-weight:700; font-size:14px; margin-bottom:2px; }
+  .oea-dup-kind { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--accent-ink); background:var(--accent-soft); border-radius:8px; padding:1px 6px; margin-right:6px; }
+  .oea-dup-entry { border-top:1px dashed var(--line); padding:8px 0 4px; }
+  .oea-dup-entry:first-of-type { border-top:none; }
+  .oea-dup-name { font-weight:700; font-size:15px; }
+  .oea-dup-meta { font-size:12.5px; color:var(--ink-soft); margin:2px 0 6px; }
+  .oea-dup-meta mark { background:var(--flag-soft, #fbe3d6); color:inherit; border-radius:4px; padding:0 3px; }
+  .oea-dup-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .oea-dup-foot { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); font-size:13px; color:var(--ink-soft); }
   .oea-status.err { color:var(--flag); }
   .oea-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
   .oea-loading { display:inline-block; width:12px; height:12px; border:2px solid var(--accent-soft); border-top-color:var(--accent); border-radius:50%; animation:oea-spin 0.7s linear infinite; vertical-align:-2px; margin-right:6px;}
@@ -260,6 +279,7 @@
     <button class="oea-nav-item" data-page="party"><span class="oea-nav-ico">&#9679;</span><span class="oea-nav-label">Party Master</span><span class="oea-nav-count" id="oea-nav-count-party"></span></button>
     <button class="oea-nav-item" data-page="item"><span class="oea-nav-ico">&#9632;</span><span class="oea-nav-label">Item Master</span><span class="oea-nav-count" id="oea-nav-count-item"></span></button>
     <button class="oea-nav-item" data-page="tabs"><span class="oea-nav-ico">&#8801;</span><span class="oea-nav-label">Setup</span><span class="oea-nav-count" id="oea-nav-count-tabs"></span></button>
+    <button class="oea-nav-item" data-page="dups"><span class="oea-nav-ico">&#9889;</span><span class="oea-nav-label">Duplicates</span><span class="oea-nav-count" id="oea-nav-count-dups"></span></button>
     <button class="oea-nav-item" data-page="backup"><span class="oea-nav-ico">&#8645;</span><span class="oea-nav-label">Backup &amp; Import</span></button>
     <div class="oea-drawer-foot">
       <div class="oea-drawer-unsaved" id="oea-drawer-unsaved">Unsaved changes in the Master List</div>
@@ -289,13 +309,17 @@
         <div class="oea-mode-btn active" data-mode="text">Typed message</div>
         <div class="oea-mode-btn" data-mode="photo">Photo</div>
       </div>
-      <div class="oea-row"><label style="font-size:12.5px;color:var(--ink-soft);">Date</label>
+      <div class="oea-row"><label class="oea-field-label" for="oea-date" style="margin:0;">Order date</label>
         <input id="oea-date" type="date" style="width:150px;"></div>
-      <div id="oea-mode-text"><textarea id="oea-text-input" style="min-height:160px;" placeholder="Paste one order or many. Lines that can't be read fully come up orange with the reason."></textarea></div>
+      <div id="oea-mode-text">
+        <label class="oea-field-label" for="oea-text-input">Paste orders here <span class="oea-field-hint">— party name on the first line, then one item per line</span></label>
+        <textarea id="oea-text-input" style="min-height:160px;" placeholder="Paste one order or many. Lines that can't be read fully come up orange with the reason."></textarea></div>
       <div id="oea-mode-photo" style="display:none;">
+        <label class="oea-field-label" for="oea-photo-party-name">Party name <span class="oea-field-hint">— only if it is not written in the photo</span></label>
         <div class="oea-row">
-          <input id="oea-photo-party-name" placeholder="Party name (optional — only if it's not written in the photo)" style="flex:1; min-width:220px;">
+          <input id="oea-photo-party-name" placeholder="Party name (optional)" style="flex:1; min-width:220px;">
         </div>
+        <label class="oea-field-label">Order photo</label>
         <div class="oea-file-drop" id="oea-file-drop">
           <div id="oea-file-hint">Click to upload, or drag &amp; drop a photo here</div>
           <input type="file" id="oea-file-input" accept="image/*" style="display:none;">
@@ -368,15 +392,25 @@
       </div>
     </div>
     <div class="oea-card" id="oea-card-parties">
+      <label class="oea-field-label" for="oea-party-search">Search parties <span class="oea-field-hint">— by name, place, tab or variant</span></label>
       <div class="oea-row">
         <input id="oea-party-search" placeholder="🔍 Search parties…" style="flex:1;min-width:180px;">
         <span class="oea-sub" id="oea-party-count" style="white-space:nowrap;"></span>
       </div>
-      <div class="oea-row">
-        <input id="oea-new-party" placeholder="Full billing name, place, district" style="flex:1; min-width:200px;">
-        <select id="oea-new-route" title="Which g-sheet tab this party's orders get pasted under" style="width:170px;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--field);font-family:inherit;font-size:15px;color:var(--ink);"></select>
-        <datalist id="oea-route-options"></datalist>
-        <button class="oea-btn" id="oea-add-party-btn">Add</button>
+      <div class="oea-create-box">
+        <label class="oea-field-label" for="oea-new-party">Create new party</label>
+        <div class="oea-row">
+          <input id="oea-new-party" placeholder="Party name and place" style="flex:1; min-width:200px;">
+          <select id="oea-new-route" title="Which g-sheet tab this party's orders get pasted under" style="width:170px;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--field);font-family:inherit;font-size:15px;color:var(--ink);"></select>
+          <datalist id="oea-route-options"></datalist>
+          <button class="oea-btn" id="oea-add-party-btn">Create</button>
+        </div>
+        <details class="oea-create-more" id="oea-new-party-more"><summary>Add variants and routes (optional)</summary>
+          <div>Other ways orders write this party — one per line, or separated by <code>;</code></div>
+          <textarea id="oea-new-party-variants" placeholder="e.g. New HW Erattupetta"></textarea>
+          <div style="margin-top:6px;">Possible routes:</div>
+          <div id="oea-new-party-routes"></div>
+        </details>
       </div>
       <div class="oea-status" id="oea-add-party-status"></div>
       <div>
@@ -408,14 +442,23 @@
       </div>
     </div>
     <div class="oea-card" id="oea-card-products">
+      <label class="oea-field-label" for="oea-product-search">Search items <span class="oea-field-hint">— by name, size or variant</span></label>
       <div class="oea-row">
         <input id="oea-product-search" placeholder="🔍 Search products…" style="flex:1;min-width:180px;">
         <span class="oea-sub" id="oea-product-count" style="white-space:nowrap;"></span>
       </div>
-      <div class="oea-row">
-        <input id="oea-new-product" placeholder="Product name" style="flex:1; min-width:140px;">
-        <input id="oea-new-weight" placeholder="Weight per unit" style="width:130px;">
-        <button class="oea-btn" id="oea-add-product-btn">Add</button>
+      <div class="oea-create-box">
+        <label class="oea-field-label" for="oea-new-product">Create new item</label>
+        <div class="oea-row">
+          <input id="oea-new-product" placeholder="Product name" style="flex:1; min-width:140px;">
+          <input id="oea-new-weight" placeholder="Weight per unit" style="width:130px;">
+          <button class="oea-btn" id="oea-add-product-btn">Create</button>
+        </div>
+        <details class="oea-create-more" id="oea-new-product-more"><summary>Add variants (optional)</summary>
+          <div>Other ways orders write this item — one per line, or separated by <code>;</code>. A word in brackets, like <code>(lite)</code>, <code>(heavy)</code> or <code>(black)</code>, is part of the variant: orders must have that word to read as this item.</div>
+          <textarea id="oea-new-product-variants" placeholder="e.g. Gipvc 6mmx3' (black)"></textarea>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;"><input type="checkbox" id="oea-new-product-bundle"> Bundle (kg→count) — orders may give this item as a total kg</label>
+        </details>
       </div>
       <div class="oea-status" id="oea-add-product-status"></div>
       <div>
@@ -450,6 +493,7 @@
       <div class="oea-card" id="oea-card-tabs">
         <h3>G-Sheet Tabs <span class="oea-card-count" id="oea-tabs-header-count"></span></h3>
         <div class="oea-sub" style="margin-bottom:8px;">Your g-sheet tabs, in the order you paste them (left to right). Use ‹ › to change the order — the order table follows it. <span class="oea-scope">this location</span></div>
+        <label class="oea-field-label" for="oea-new-tab">Add a tab</label>
         <div class="oea-row">
           <input id="oea-new-tab" placeholder="New tab name (e.g. PALAKKAD)" style="flex:1;min-width:180px;">
           <button class="oea-btn" id="oea-add-tab-btn">Add</button>
@@ -460,6 +504,7 @@
       <div class="oea-card" id="oea-card-proutes">
         <h3>Possible Routes <span class="oea-card-count" id="oea-proutes-header-count"></span></h3>
         <div class="oea-sub" style="margin-bottom:8px;">Delivery corridors used by the Loading Plan Builder — separate from the g-sheet tab. <span class="oea-scope">this location</span></div>
+        <label class="oea-field-label" for="oea-new-possible-route">Add a route</label>
         <div class="oea-row">
           <input id="oea-new-possible-route" placeholder="New route (e.g. Kollam)" style="flex:1;min-width:180px;">
           <button class="oea-btn" id="oea-add-possible-route-btn">Add</button>
@@ -508,9 +553,9 @@
     <div class="oea-card" id="oea-conn-card">
       <h3>Google Sheet connection</h3>
       <div class="oea-sub" style="margin-bottom:8px;">Links this browser to the Master List Google Sheet (and Advanced Read for photos). Your passcode decides the location. The device name is written in the Sheet's Log next to every change made here. The device name and passcode are kept in this browser only — never in a backup.</div>
-      <div class="oea-row">
-        <input id="oea-conn-device" placeholder="Device name (e.g. EKM office PC)" style="flex:1;min-width:190px;">
-        <input id="oea-conn-pass" type="password" placeholder="Passcode" style="flex:1;min-width:150px;">
+      <div class="oea-row" style="align-items:flex-end;">
+        <div style="flex:1;min-width:190px;"><label class="oea-field-label" for="oea-conn-device">Device name</label><input id="oea-conn-device" placeholder="e.g. EKM office PC" style="width:100%;box-sizing:border-box;"></div>
+        <div style="flex:1;min-width:150px;"><label class="oea-field-label" for="oea-conn-pass">Passcode</label><input id="oea-conn-pass" type="password" placeholder="Passcode for your location" style="width:100%;box-sizing:border-box;"></div>
       </div>
       <details class="oea-conn-more"><summary>Server link</summary>
         <div class="oea-row" style="margin-top:6px;"><input id="oea-conn-url" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1;min-width:240px;"></div>
@@ -524,10 +569,22 @@
       </div>
       <div id="oea-conn-status" class="oea-status"></div>
     </div>
+  </section>
+
+  <section class="oea-panel" id="page-dups">
+    <div class="oea-page-head">
+      <div>
+        <h2>Duplicates <span class="oea-page-count" id="oea-dups-header-count"></span></h2>
+        <div class="oea-sub">Items or parties the reader cannot tell apart: the same variant on two entries, two entries that read as the same thing, or the same name spelt two ways. Orders that hit them come up orange. Fix each one here with a button.</div>
+      </div>
+      <div class="oea-page-actions">
+        <button class="oea-btn ghost" id="oea-dup-check-btn" type="button">Check again</button>
+        <button class="oea-btn ghost oea-save-btn">Save</button>
+        <button class="oea-btn oea-save-back-btn">Save &amp; back to Read Orders</button>
+      </div>
+    </div>
     <div class="oea-card">
-      <h3>Check Master List</h3>
-      <div class="oea-sub" style="margin-bottom:8px;">Finds products that read as the same item (so the code can't choose between them and those lines come up orange), an alias given to two items, a party alias that is another party's name, and parties whose names differ only in spelling. Nothing is changed — it only lists them.</div>
-      <div class="oea-actions"><button class="oea-btn secondary" id="oea-dup-check-btn">Find duplicates</button></div>
+      <div class="oea-status" id="oea-dup-status" style="margin-top:0;"></div>
       <div id="oea-dup-result"></div>
     </div>
   </section>
@@ -540,8 +597,8 @@
   let mode = 'text';
   let photoBase64 = null, photoMediaType = null;
   // ---- Tool version. Bump this on every released change so copies can be compared. ----
-  const TOOL_VERSION = 'v5.8.6';
-  const TOOL_VERSION_DATE = '2026-10-22';
+  const TOOL_VERSION = 'v5.9';
+  const TOOL_VERSION_DATE = '2026-11-16';
 
   const $ = id => document.getElementById(id);
 
@@ -550,6 +607,7 @@
   let masterDirty = false;
   let editSeq = 0;              // bumps on every edit, so a save can tell if edits landed while it was writing
   let saveInFlight = null;      // never two writes at once - a second request just waits for the first
+  let syncBusy = 0;             // Sheet work running or waiting (background sync)
 
   // One place that shows save state: the pill in the top bar (clickable to save while unsaved)
   // plus a flag on the root so the menu can show "Unsaved changes" next to its Save button.
@@ -566,7 +624,7 @@
       failed: ['⚠ Save failed — retry', 'Save failed. Your edits are still on screen (not lost). Click to try again, or export a copy from Backup & Import.' + (lastFailReason ? ' Reason: ' + lastFailReason : ''), 'failed'],
       local:  [`Saved ${t} (this browser)`, 'Saved in this browser only - the tool storage refused the save. Keep a backup file too.' + (lastSaveWarn ? ' Reason: ' + lastSaveWarn : ''), 'warn'],
       loadfail: ['⚠ Saved list not read', 'The saved Master List could not be read. Reason: ' + loadProblem, 'failed'],
-      syncing:  ['Updating the Sheet…', 'Saved in this browser; sending the changes to the Google Sheet', ''],
+      syncing:  [`Saved ${t} · updating the Sheet…`, 'Saved in this browser. The changes are being sent to the Google Sheet in the background - you can keep working.', ''],
       synced:   [`Saved ${t} · Sheet updated`, lastSyncNote || 'Saved and sent to the Google Sheet', ''],
       syncwarn: [`Saved ${t} · some not sent`, lastSyncNote, 'warn'],
       syncfail: [`Saved ${t} (Sheet not updated)`, 'Saved in this browser, but the Sheet was not updated: ' + lastSyncNote + '. It will be sent with the next Save.', 'warn'],
@@ -600,7 +658,9 @@
 
   // master list is manual-save only, so guard against closing the tab with unsaved edits
   window.addEventListener('beforeunload', (e) => {
-    if (masterDirty) { e.preventDefault(); e.returnValue = ''; return ''; }
+    // unsaved edits, or a Save still on its way to the Sheet (it is safe in this browser and would be sent next
+    // time the tool opens - but closing now means other computers don't get it yet)
+    if (masterDirty || syncBusy > 0) { e.preventDefault(); e.returnValue = ''; return ''; }
   });
 
   // ---------- Storage (v3.1) ----------
@@ -839,12 +899,8 @@
           if (editSeq !== seq) { masterDirty = true; setSaveState('more'); return 'more'; }
           masterDirty = false;
           forgetTrialCopy();
-          if (connected()) {
-            setSaveState('syncing');
-            try { const res = await pushToSheet(); lastSyncNote = syncSummary(res); setSaveState((res.conflicts || []).length ? 'syncwarn' : 'synced'); connStatus(lastSyncNote, (res.conflicts || []).length > 0); }
-            catch (e) { lastSyncNote = errText(e); setSaveState('syncfail'); connStatus('Saved in this browser, but the Sheet was not updated: ' + lastSyncNote + '. It will be sent with the next Save or when the tool is opened.', true); }
-            return 'saved';
-          }
+          // v5.9: the Sheet is updated in the background - Save is done as soon as this browser has the list
+          if (connected()) { setSaveState('syncing'); startSheetSync(); return 'saved'; }
           setSaveState(how === 'local' ? 'local' : 'saved');
           return 'saved';
         } catch (e) {
@@ -874,7 +930,7 @@
   function localISODate(d) { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
   // ---------- Pages + the ☰ menu ----------
-  const PAGES = ['orders', 'party', 'item', 'tabs', 'backup'];
+  const PAGES = ['orders', 'party', 'item', 'tabs', 'dups', 'backup'];
   function openMenu(open) {
     $('oea-root').classList.toggle('menu-open', open);
     $('oea-menu-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -889,6 +945,8 @@
     if (page === 'party') renderPartyList();
     if (page === 'item') renderProductList();
     if (page === 'tabs') { renderRouteOptions(); renderWords(); }
+    if (page === 'dups') renderDuplicates();
+    if (page === 'party') drawNewPartyRoutes();
     const root = $('oea-root'); if (root && root.getBoundingClientRect().top < 0) root.scrollIntoView({block: 'start'});
   }
   $('oea-menu-btn').addEventListener('click', () => openMenu(!$('oea-root').classList.contains('menu-open')));
@@ -898,11 +956,11 @@
   document.querySelectorAll('.oea-save-btn').forEach(b => b.addEventListener('click', () => performManualSave()));
   document.querySelectorAll('.oea-save-back-btn').forEach(b => b.addEventListener('click', async () => {
     b.disabled = true;
-    const r = masterDirty ? await performManualSave() : 'saved';
+    const r = masterDirty ? await performManualSave() : 'saved';   // waits only for this browser's copy; the Sheet follows in the background
     b.disabled = false;
     if (r !== 'failed') navigate('orders');      // a failed save keeps you here with your edits on screen
   }));
-  $('oea-save-indicator').addEventListener('click', () => { if ($('oea-save-indicator').dataset.state === 'loadfail') loadMaster(); else if (masterDirty) performManualSave(); });
+  $('oea-save-indicator').addEventListener('click', () => { const st = $('oea-save-indicator').dataset.state; if (st === 'loadfail') loadMaster(); else if (masterDirty) performManualSave(); else if (st === 'syncfail') { setSaveState('syncing'); startSheetSync(); } });
   $('oea-save-error-retry').addEventListener('click', () => { if ($('oea-save-indicator').dataset.state === 'loadfail') loadMaster(); else performManualSave(); });
   $('oea-save-error-export').addEventListener('click', () => $('oea-export-btn').click());
 
@@ -1167,6 +1225,7 @@
     if (locNote) setTimeout(() => { const st = $('oea-conn-status'); if (st && !st.textContent.includes(locNote)) { st.textContent = (st.textContent ? st.textContent + ' ' : '') + locNote; st.className = 'oea-status err'; } }, 0);
     renderMasterLists(); renderRouteOptions(); if (currentPage === 'tabs') renderWords();
     try { await storeMaster(JSON.stringify(master)); } catch (e) {}          // this browser keeps a copy for offline use
+    if (!loadedFrom) loadedFrom = { label: 'the Google Sheet' };         // first load on a new computer: the pill must not say "No saved list yet"
     masterDirty = false; setSaveState('loaded');
     if ((locServer && keptLocs) || keptDw) markDirty();
   }
@@ -1190,7 +1249,79 @@
     if (c.added) bits.push(c.added + ' added'); if (c.updated) bits.push(c.updated + ' updated'); if (c.removed) bits.push(c.removed + ' deleted'); if (c.setup) bits.push('Setup'); if (c.words) bits.push('word lists ' + c.words);
     return 'Sheet updated' + (bits.length ? ' (' + bits.join(', ') + ')' : '') + '.' + ((res.conflicts || []).length ? ' Not saved: ' + res.conflicts.join(' · ') : '');
   }
-  async function syncOnOpen() {
+  // ---- background Sheet sync (v5.9) ----
+  // One Sheet job at a time, in order. Save hands its job over and returns at once; the top-right pill shows
+  // "Updating the Sheet…" then "Sheet updated". Reading orders and editing go on meanwhile.
+  let syncTail = Promise.resolve(), syncQueued = false;
+  function queueSync(job) {
+    syncBusy++;
+    const run = syncTail.then(job, job);
+    syncTail = run.then(() => { syncBusy--; }, () => { syncBusy--; });
+    return run;
+  }
+  // wait until nobody is typing in a Master List box, so the list is not redrawn under their cursor
+  function quietMoment(maxMs) {
+    const busy = () => { const a = document.activeElement; return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest && a.closest('#page-party, #page-item, #page-tabs, #page-dups')); };
+    return new Promise(res => { const t0 = Date.now(); (function tick() { if (!busy() || Date.now() - t0 > (maxMs || 60000)) res(); else setTimeout(tick, 400); })(); });
+  }
+  // The Sheet answered after more edits were made here: take the Sheet's list (it has everyone's changes) and
+  // put this computer's newer edits back on top. They stay "unsaved" until the next Save.
+  async function rebaseOnSheet(r, sent) {
+    const mine = JSON.parse(JSON.stringify(master));
+    const key = e => e.id ? 'i:' + e.id : 'n:' + normalize(e.name);
+    const delta = (was, now) => {
+      const wm = new Map((was || []).map(e => [key(e), JSON.stringify(e)])), nowKeys = new Set((now || []).map(key));
+      return { put: (now || []).filter(e => wm.get(key(e)) !== JSON.stringify(e)), del: (was || []).filter(e => !nowKeys.has(key(e))).map(key) };
+    };
+    const dItems = delta(sent.products, mine.products), dParties = delta(sent.parties, mine.parties);
+    const setupChanged = JSON.stringify(setupOf(sent)) !== JSON.stringify(setupOf(mine));
+    const wordsChanged = JSON.stringify(sharedWordsOf(sent)) !== JSON.stringify(sharedWordsOf(mine));
+    await applySheet(r);
+    const put = (list, d) => {
+      const del = new Set(d.del);
+      for (let i = list.length - 1; i >= 0; i--) if (del.has(key(list[i]))) list.splice(i, 1);
+      d.put.forEach(e => { const i = list.findIndex(x => key(x) === key(e)); if (i >= 0) list[i] = Object.assign({}, e, { updated: list[i].updated || 0 }); else list.push(e); });
+    };
+    put(master.products, dItems); put(master.parties, dParties);
+    if (setupChanged) { master.routes = mine.routes || []; master.possibleRouteList = mine.possibleRouteList || []; master.words = Object.assign({}, master.words, { partyShort: (mine.words || {}).partyShort || [], places: (mine.words || {}).places || [] }); }
+    if (wordsChanged) master.words = Object.assign({}, master.words, sharedWordsOf(mine));
+    markDirty(); renderMasterLists(); renderRouteOptions(); if (currentPage === 'tabs') renderWords();
+  }
+  async function syncRound() {
+    const c = getConn(), base = getBase();
+    if (!base || base.location !== c.location) return { note: 'not loaded from the Sheet yet — press Refresh from Sheet' };
+    ensureIds();
+    const seq0 = editSeq, sent = JSON.parse(JSON.stringify(master));
+    const ch = computeChanges(base), n = changeCount(ch);
+    let res = { counts: { added: 0, updated: 0, removed: 0 }, conflicts: [] };
+    if (n) res = await callServer({ action: 'save', changes: ch }, 120000);
+    const r = await callServer({ action: 'load' }, 120000);
+    await quietMoment();
+    if (editSeq === seq0) { masterDirty = false; await applySheet(r); }
+    else await rebaseOnSheet(r, sent);
+    return res;
+  }
+  function startSheetSync() {
+    if (!connected() || syncQueued) return;        // a waiting job will send everything saved up to when it starts
+    syncQueued = true;
+    queueSync(async () => {
+      syncQueued = false;
+      if (!masterDirty) setSaveState('syncing');
+      try {
+        const res = await syncRound();
+        lastSyncNote = syncSummary(res);
+        const warn = (res.conflicts || []).length > 0;
+        if (!masterDirty) setSaveState(warn ? 'syncwarn' : 'synced');
+        connStatus(lastSyncNote, warn);
+      } catch (e) {
+        lastSyncNote = errText(e);
+        if (!masterDirty) setSaveState('syncfail');
+        connStatus('Saved in this browser, but the Sheet was not updated: ' + lastSyncNote + '. It will be sent with the next Save or when the tool is opened.', true);
+      }
+    });
+  }
+  function syncOnOpen() { return queueSync(syncOnOpenNow); }
+  async function syncOnOpenNow() {
     if (!connected() || masterDirty) return;
     try {
       const base = getBase(), c = getConn();
@@ -1370,7 +1501,11 @@
   });
 
   function escapeHtml(s) { return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-  function normalize(s) { return (s||'').toLowerCase().trim().replace(/[^a-z0-9]/g,''); }
+  // letters and digits only - but a decimal point or a fraction slash between digits is kept, so "1.5x12" is not
+  // "15x12", "2.5mm" is not "25mm" and "1/2x1/2" is not "12x12"
+  function normalize(s) { return (s||'').toLowerCase().trim().replace(/(\d)\.(?=\d)/g, '$1\u00b7').replace(/(\d)\/(?=\d)/g, '$1\u2044').replace(/[^a-z0-9\u00b7\u2044]/g,''); }
+  // one part of a line that held several items ("... green -1, black -1 (2 of 2)") is not a wording to remember
+  const learnable = raw => !!raw && !/\(\d+ of \d+\)\s*$/.test(raw);
   function parseNum(s) { if (s === null || s === undefined) return NaN; const m = String(s).match(/[\d.]+/); return m ? parseFloat(m[0]) : NaN; }
   function forceUppercase(input) {
     input.addEventListener('input', () => {
@@ -1558,12 +1693,42 @@
   let partyLimit = LIST_PAGE, productLimit = LIST_PAGE, lastPartyQ = null, lastProductQ = null;
   let currentPage = 'orders';
 
+  // a short note at the bottom of the screen, with one optional button (Undo)
+  let toastTimer = null;
+  function toast(text, actionLabel, fn, ms) {
+    let el = $('oea-toast');
+    if (!el) { el = document.createElement('div'); el.id = 'oea-toast'; el.className = 'oea-toast'; el.setAttribute('role', 'status'); $('oea-root').appendChild(el); }
+    el.innerHTML = ''; const t = document.createElement('span'); t.textContent = text; el.appendChild(t);
+    if (actionLabel) { const b = document.createElement('button'); b.type = 'button'; b.className = 'oea-btn tiny'; b.textContent = actionLabel; b.onclick = () => { el.classList.remove('show'); fn(); }; el.appendChild(b); }
+    el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), ms || 9000);
+  }
+  // Remove takes the entry out at once; Undo puts it back where it was
+  function removeEntry(list, entry, kindWord) {
+    const i = list.indexOf(entry); if (i < 0) return;
+    list.splice(i, 1); saveMaster(); renderMasterLists(); renderRouteOptions();
+    toast(`Removed ${kindWord} "${entry.name}".`, 'Undo', () => { list.splice(Math.min(i, list.length), 0, entry); saveMaster(); renderMasterLists(); renderRouteOptions(); });
+  }
+  // a variant typed under an entry: refused when another entry already has it (the reader could not choose)
+  function tryAddVariant(entry, text, findOther, kindWord, row) {
+    const v = String(text || '').trim(); if (!v) return false;
+    const old = row.querySelector('.oea-variant-note'); if (old) old.remove();
+    const note = msg => { const d = document.createElement('div'); d.className = 'oea-variant-note oea-status err'; d.style.cssText = 'flex-basis:100%;margin:4px 0 0;font-size:13px;'; d.textContent = msg; row.appendChild(d); };
+    if (normalize(v) === normalize(entry.name) || (entry.aliases || []).some(a => normalize(a) === normalize(v))) { note(`"${v}" is already on this ${kindWord}.`); return false; }
+    const other = findOther(v, entry);
+    if (other) { note(`Not added: "${v}" is already ${normalize(other.name) === normalize(v) ? 'the name of' : 'a variant of'} "${other.name}". One variant can belong to one ${kindWord} only.`); return false; }
+    entry.aliases = entry.aliases || []; entry.aliases.push(v); return true;
+  }
+  let newPartyRoutes = [];
+  function drawNewPartyRoutes() { const host = $('oea-new-party-routes'); if (!host) return; host.innerHTML = ''; host.appendChild(buildPossibleRoutesPicker(newPartyRoutes, null).wrap); }
+  const variantLines = text => { const out = []; String(text || '').split(/[\n;]+/).map(x => x.trim()).filter(Boolean).forEach(v => { if (!out.some(o => normalize(o) === normalize(v))) out.push(v); }); return out; };
+
   function renderMasterLists() {
     master.parties.sort((a, b) => (a.name||'').localeCompare(b.name||''));
     master.products.sort((a, b) => (a.name||'').localeCompare(b.name||''));
     updateMasterCounts();
     if (currentPage === 'party') renderPartyList();
     if (currentPage === 'item') renderProductList();
+    scheduleDupCount();
   }
 
   function updateMasterCounts() {
@@ -1625,7 +1790,7 @@
       routeInput.addEventListener('change', () => { p.route = routeInput.value.trim(); saveMaster(); });
       top.appendChild(nameInput); top.appendChild(routeInput);
       const del = document.createElement('button'); del.className = 'oea-btn ghost'; del.textContent = 'Remove';
-      del.onclick = () => { master.parties.splice(master.parties.indexOf(p),1); saveMaster(); renderMasterLists(); renderRouteOptions(); };
+      del.onclick = () => removeEntry(master.parties, p, 'party');
       top.appendChild(del); li.appendChild(top);
       p.possibleRoutes = p.possibleRoutes || [];
       const pickLabel = document.createElement('div');
@@ -1645,8 +1810,8 @@
       const addAlias = document.createElement('input'); addAlias.className = 'oea-alias-add'; addAlias.placeholder = '+ variant name';
       addAlias.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && addAlias.value.trim()) {
-          p.aliases = p.aliases || []; p.aliases.push(addAlias.value.trim()); addAlias.value = '';
-          saveMaster(); renderMasterLists();
+          if (!tryAddVariant(p, addAlias.value, findPartyByNameOrAlias, 'party', aliasRow)) return;
+          addAlias.value = ''; saveMaster(); renderMasterLists();
         }
       });
       aliasRow.appendChild(addAlias); li.appendChild(aliasRow);
@@ -1763,7 +1928,7 @@
       bundleLabel.title = 'When an order gives this item\'s quantity as a total kg figure, convert it to a bundle count using the weight above as the per-bundle weight.';
       top.appendChild(bundleLabel);
       const del = document.createElement('button'); del.className = 'oea-btn ghost'; del.textContent = 'Remove';
-      del.onclick = () => { master.products.splice(master.products.indexOf(pr),1); saveMaster(); renderMasterLists(); };
+      del.onclick = () => removeEntry(master.products, pr, 'item');
       top.appendChild(del); li.appendChild(top);
       const aliasRow = document.createElement('div'); aliasRow.className = 'oea-alias-row';
       (pr.aliases||[]).forEach((a, ai) => {
@@ -1776,8 +1941,8 @@
       const addAlias = document.createElement('input'); addAlias.className = 'oea-alias-add'; addAlias.placeholder = '+ variant name';
       addAlias.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && addAlias.value.trim()) {
-          pr.aliases = pr.aliases || []; pr.aliases.push(addAlias.value.trim()); addAlias.value = '';
-          saveMaster(); renderMasterLists();
+          if (!tryAddVariant(pr, addAlias.value, findProductByNameOrAlias, 'item', aliasRow)) return;
+          addAlias.value = ''; saveMaster(); renderMasterLists();
         }
       });
       aliasRow.appendChild(addAlias); li.appendChild(aliasRow); prList.appendChild(li);
@@ -1849,9 +2014,14 @@
       }
       return;
     }
-    master.parties.push({name, route, aliases: [], possibleRoutes: []});
-    $('oea-new-party').value=''; $('oea-new-route').value='';
-    status.textContent = `Added "${name}".`;
+    const pv = variantLines($('oea-new-party-variants').value).filter(v => normalize(v) !== n);
+    const pClash = pv.map(v => [v, findPartyByNameOrAlias(v)]).find(x => x[1]);
+    if (pClash) { status.style.color = 'var(--flag)'; status.textContent = `Not created: the variant "${pClash[0]}" is already ${normalize(pClash[1].name) === normalize(pClash[0]) ? 'the name of' : 'a variant of'} "${pClash[1].name}".`; $('oea-new-party-more').open = true; return; }
+    master.parties.push({name, route, aliases: pv, possibleRoutes: newPartyRoutes.slice()});
+    $('oea-new-party').value=''; $('oea-new-route').value=''; $('oea-new-party-variants').value = ''; $('oea-new-party-more').open = false;
+    newPartyRoutes = []; drawNewPartyRoutes();
+    status.textContent = `Created "${name}"` + (pv.length ? ` with ${pv.length} variant${pv.length === 1 ? '' : 's'}` : '') + '. Press Save to keep it.';
+    $('oea-party-search').value = name;
     saveMaster(); renderMasterLists(); renderRouteOptions();
   });
   $('oea-add-product-btn').addEventListener('click', () => {
@@ -1875,10 +2045,18 @@
       }
       return;
     }
-    master.products.push({name, weight, soldByKg: false, aliases: []});
-    $('oea-new-product').value=''; $('oea-new-weight').value='';
-    status.textContent = `Added "${name}".`;
+    const iv = variantLines($('oea-new-product-variants').value).filter(v => normalize(v) !== n);
+    const iClash = iv.map(v => [v, findProductByNameOrAlias(v)]).find(x => x[1]);
+    if (iClash) { status.style.color = 'var(--flag)'; status.textContent = `Not created: the variant "${iClash[0]}" is already ${normalize(iClash[1].name) === normalize(iClash[0]) ? 'the name of' : 'a variant of'} "${iClash[1].name}".`; $('oea-new-product-more').open = true; return; }
+    master.products.push({name, weight, soldByKg: $('oea-new-product-bundle').checked, aliases: iv});
+    $('oea-new-product').value=''; $('oea-new-weight').value=''; $('oea-new-product-variants').value = ''; $('oea-new-product-bundle').checked = false; $('oea-new-product-more').open = false;
+    status.textContent = `Created "${name}"` + (iv.length ? ` with ${iv.length} variant${iv.length === 1 ? '' : 's'}` : '') + '. Press Save to keep it.';
+    $('oea-product-search').value = name;
     saveMaster(); renderMasterLists();
+  });
+
+  [['oea-new-product', 'oea-add-product-btn'], ['oea-new-weight', 'oea-add-product-btn'], ['oea-new-party', 'oea-add-party-btn']].forEach(([id, btn]) => {
+    $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $(btn).click(); } });
   });
 
   function parseBulkLines(text) {
@@ -1888,20 +2066,22 @@
     }).filter(r => r.name);
   }
   function upsertProducts(rows) {
-    let added = 0, updated = 0;
+    let added = 0, updated = 0, skipped = 0;
     rows.forEach(r => {
       const existing = master.products.find(p => normalize(p.name) === normalize(r.name));
-      if (existing) { if (r.weight) { existing.weight = r.weight; updated++; } }
-      else { master.products.push({name: r.name, weight: r.weight}); added++; }
+      if (existing) { if (r.weight && String(existing.weight) !== String(r.weight)) { existing.weight = r.weight; updated++; } }
+      else if (findProductByNameOrAlias(r.name)) skipped++;             // that name is already a variant of another item
+      else { master.products.push({name: r.name, weight: r.weight, soldByKg: false, aliases: []}); added++; }
     });
-    saveMaster(); renderMasterLists();
-    return {added, updated};
+    if (added || updated) { saveMaster(); renderMasterLists(); }
+    return {added, updated, skipped};
   }
+  const skippedNote = n => n ? ` ${n} not added: the name is already a variant of another item.` : '';
   $('oea-bulk-add-btn').addEventListener('click', () => {
     const rows = parseBulkLines($('oea-bulk-text').value);
     if (!rows.length) { $('oea-bulk-status').textContent = 'Paste at least one line first.'; return; }
-    const {added, updated} = upsertProducts(rows);
-    $('oea-bulk-status').textContent = `Added ${added}, updated ${updated} product(s).`;
+    const {added, updated, skipped} = upsertProducts(rows);
+    $('oea-bulk-status').textContent = `Added ${added}, updated ${updated} product(s).` + skippedNote(skipped);
     $('oea-bulk-text').value = '';
   });
   $('oea-bulk-file').addEventListener('change', (e) => {
@@ -1910,8 +2090,8 @@
     const reader = new FileReader();
     reader.onload = () => {
       const rows = parseBulkLines(reader.result);
-      const {added, updated} = upsertProducts(rows);
-      $('oea-bulk-status').textContent = `From file: added ${added}, updated ${updated} product(s).`;
+      const {added, updated, skipped} = upsertProducts(rows);
+      $('oea-bulk-status').textContent = `From file: added ${added}, updated ${updated} product(s).` + skippedNote(skipped);
     };
     reader.readAsText(file);
   });
@@ -1933,13 +2113,19 @@
       // names are pasted comma-free now - strip any stray commas so an accidental one
       // (or an old comma-separated paste) doesn't leave punctuation stuck in the name
       name = name.replace(/,/g, '').replace(/\s+/g, ' ').trim();
-      return { name, route };
+      return { name, route, piped: line.includes('|'), full: line.replace(/[|,]/g, ' ').replace(/\s+/g, ' ').trim() };
     }).filter(r => r.name);
   }
 
   function upsertParties(rows) {
-    let added = 0, updated = 0;
+    let added = 0, updated = 0, badTab = 0;
+    // a tab must be one of the tabs on the Setup page - a pasted "… , KTM" must not invent a tab that no g-sheet has
+    const tabs = new Map((master.routes || []).map(t => [String(t).toUpperCase(), t]));
     rows.forEach(r => {
+      if (r.route && tabs.size) {
+        if (tabs.has(r.route)) r.route = tabs.get(r.route);
+        else { badTab++; if (!r.piped && r.full) r.name = r.full; r.route = ''; }      // without "|" the last part was the place, not a tab
+      }
       const upperName = (r.name||'').toUpperCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
       if (!upperName) return;
       const existing = findPartyByNameOrAlias(upperName);
@@ -1947,13 +2133,14 @@
       else { master.parties.push({name: upperName, route: r.route, aliases: [], possibleRoutes: []}); added++; }
     });
     if (added || updated) { saveMaster(); renderMasterLists(); renderRouteOptions(); }
-    return {added, updated};
+    return {added, updated, badTab};
   }
+  const badTabNote = n => n ? ` ${n} line${n === 1 ? ' has' : 's have'} a tab that is not on the Setup page — added without a tab.` : '';
   $('oea-bulk-party-add-btn').addEventListener('click', () => {
     const rows = parsePartyLines($('oea-bulk-party-text').value);
     if (!rows.length) { $('oea-bulk-party-status').textContent = 'Paste at least one line first.'; return; }
-    const {added, updated} = upsertParties(rows);
-    $('oea-bulk-party-status').textContent = `Added ${added}, updated ${updated} part${(added+updated)===1?'y':'ies'}.`;
+    const {added, updated, badTab} = upsertParties(rows);
+    $('oea-bulk-party-status').textContent = `Added ${added}, updated ${updated} part${(added+updated)===1?'y':'ies'}.` + badTabNote(badTab);
     $('oea-bulk-party-text').value = '';
   });
   $('oea-bulk-party-file').addEventListener('change', (e) => {
@@ -1962,8 +2149,8 @@
     const reader = new FileReader();
     reader.onload = () => {
       const rows = parsePartyLines(reader.result);
-      const {added, updated} = upsertParties(rows);
-      $('oea-bulk-party-status').textContent = `From file: added ${added}, updated ${updated} part${(added+updated)===1?'y':'ies'}.`;
+      const {added, updated, badTab} = upsertParties(rows);
+      $('oea-bulk-party-status').textContent = `From file: added ${added}, updated ${updated} part${(added+updated)===1?'y':'ies'}.` + badTabNote(badTab);
     };
     reader.readAsText(file);
   });
@@ -2254,22 +2441,151 @@
   });
 
   $('oea-parse-btn').addEventListener('click', parseOrder);
-  $('oea-dup-check-btn').addEventListener('click', () => {
-    const out = $('oea-dup-result'); out.innerHTML = '';
-    const groups = OEA_READER.createParser(master).findDuplicates();
-    const head = document.createElement('div'); head.className = 'oea-status'; head.style.marginTop = '8px';
-    head.textContent = groups.length ? `${groups.length} group(s) found. Merge them (keep one, move the other's aliases to it, delete the other) or add a word that tells them apart.` : 'No duplicates found.';
-    out.appendChild(head);
-    if (!groups.length) return;
-    const ul = document.createElement('ul'); ul.className = 'oea-dup-list';
-    groups.forEach(g => {
-      const li = document.createElement('li');
-      const b = document.createElement('b'); b.textContent = g.names.join('  |  '); li.appendChild(b);
-      li.appendChild(document.createTextNode(`  — ${g.kind === 'party' ? 'party' : 'product'}: ${g.why}`));
-      ul.appendChild(li);
+  // ---------- Duplicates page: every group can be fixed with a button ----------
+  const DUP_HIDE_KEY = 'oea-dup-hidden-v1';
+  let dupUndo = null, dupShowHidden = false, dupCountTimer = null;
+  const dupHidden = () => { try { const a = JSON.parse(lsGet(DUP_HIDE_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  const dupKey = g => g.kind + ':' + g.names.map(normalize).sort().join('|') + (g.code === 'alias' ? ':' + normalize(g.text) : ':' + g.code);
+  function findDupGroups() { try { return OEA_READER.createParser(master).findDuplicates(); } catch (e) { console.error(e); return []; } }
+  function setDupCount(n) {
+    const t = n ? String(n) : '';
+    ['oea-nav-count-dups', 'oea-dups-header-count'].forEach(id => { const el = $(id); if (el) el.textContent = t; });
+  }
+  // the menu badge follows the list; counted a moment after the last change so typing stays quick
+  function scheduleDupCount() {
+    try { clearTimeout(dupCountTimer); } catch (e) { return; }      // called before this part of the page is set up
+    dupCountTimer = setTimeout(() => { try { if (currentPage === 'dups') return; const hid = new Set(dupHidden()); setDupCount(findDupGroups().filter(g => !hid.has(dupKey(g))).length); } catch (e) {} }, 1500);
+  }
+  const dupList = kind => kind === 'party' ? master.parties : master.products;
+  const dupFind = (kind, name) => dupList(kind).find(e => e.name === name);
+  const addVariant = (e, text) => {
+    const t = String(text || '').trim(); if (!t) return;
+    e.aliases = e.aliases || [];
+    if (normalize(t) !== normalize(e.name) && !e.aliases.some(a => normalize(a) === normalize(t))) e.aliases.push(t);
+  };
+  // keep one entry: the others' names and variants become its variants, then the others are deleted
+  function mergeEntries(kind, keepName, otherNames) {
+    const keep = dupFind(kind, keepName); if (!keep) return;
+    otherNames.forEach(n => {
+      const o = dupFind(kind, n); if (!o || o === keep) return;
+      addVariant(keep, o.name); (o.aliases || []).forEach(a => addVariant(keep, a));
+      if (kind === 'party') {
+        if (!keep.route && o.route) keep.route = o.route;
+        keep.possibleRoutes = keep.possibleRoutes || []; (o.possibleRoutes || []).forEach(r => { if (!keep.possibleRoutes.includes(r)) keep.possibleRoutes.push(r); });
+        keep.locations = keep.locations || []; (o.locations || []).forEach(l => { if (l && l.name && !keep.locations.some(x => normalize(x.name) === normalize(l.name))) keep.locations.push(l); });
+      } else {
+        if ((keep.weight == null || String(keep.weight).trim() === '') && o.weight) keep.weight = o.weight;
+        if (o.soldByKg) keep.soldByKg = true;
+      }
+      const list = dupList(kind); list.splice(list.indexOf(o), 1);
     });
-    out.appendChild(ul);
-  });
+  }
+  function mergeTwins(kind, name) {
+    const list = dupList(kind), same = list.filter(e => e.name === name), keep = same[0];
+    same.slice(1).forEach(o => {
+      (o.aliases || []).forEach(a => addVariant(keep, a));
+      if (kind === 'party') {
+        if (!keep.route && o.route) keep.route = o.route;
+        keep.possibleRoutes = keep.possibleRoutes || []; (o.possibleRoutes || []).forEach(r => { if (!keep.possibleRoutes.includes(r)) keep.possibleRoutes.push(r); });
+        keep.locations = keep.locations || []; (o.locations || []).forEach(l => { if (l && l.name && !keep.locations.some(x => normalize(x.name) === normalize(l.name))) keep.locations.push(l); });
+      } else {
+        if ((keep.weight == null || String(keep.weight).trim() === '') && o.weight) keep.weight = o.weight;
+        if (o.soldByKg) keep.soldByKg = true;
+      }
+      list.splice(list.indexOf(o), 1);
+    });
+  }
+  function dupAct(note, fn) {
+    dupUndo = { products: JSON.stringify(master.products), parties: JSON.stringify(master.parties), note };
+    fn(); saveMaster(); renderMasterLists(); renderRouteOptions();
+    renderDuplicates(note + ' Press Save to keep it.');
+  }
+  function renderDuplicates(msg) {
+    const out = $('oea-dup-result'), st = $('oea-dup-status'); if (!out || !st) return;
+    out.innerHTML = ''; st.innerHTML = '';
+    const hid = new Set(dupHidden());
+    const all = findDupGroups(), open = all.filter(g => !hid.has(dupKey(g))), hidden = all.filter(g => hid.has(dupKey(g)));
+    setDupCount(open.length);
+    const btn = (label, cls, fn, title) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'oea-btn tiny ' + (cls || 'secondary'); b.textContent = label; if (title) b.title = title; b.onclick = fn; return b; };
+    const head = document.createElement('span');
+    head.textContent = (msg ? msg + ' ' : '') + (open.length ? `${open.length} to look at.` : 'No duplicates found — nothing to fix.');
+    st.appendChild(head);
+    if (dupUndo) st.appendChild(document.createTextNode(' ')), st.appendChild(btn('Undo: ' + dupUndo.note.replace(/\.$/, ''), 'ghost', () => {
+      const u = dupUndo; dupUndo = null;
+      master.products = JSON.parse(u.products); master.parties = JSON.parse(u.parties);
+      saveMaster(); renderMasterLists(); renderRouteOptions(); renderDuplicates('Undone.');
+    }));
+    const drawGroup = (g, isHidden) => {
+      const box = document.createElement('div'); box.className = 'oea-dup-group';
+      const kindWord = g.kind === 'party' ? 'party' : 'item';
+      const why = document.createElement('div'); why.className = 'oea-dup-why';
+      why.innerHTML = `<span class="oea-dup-kind">${g.kind === 'party' ? 'Party' : 'Item'}</span>` + escapeHtml(g.why.charAt(0).toUpperCase() + g.why.slice(1));
+      box.appendChild(why);
+      if (g.code === 'twin') {
+        const row = document.createElement('div'); row.className = 'oea-dup-entry';
+        const copies = dupList(g.kind).filter(e => e.name === g.names[0]);
+        const meta = document.createElement('div'); meta.className = 'oea-dup-meta';
+        meta.textContent = copies.map((e, i) => `copy ${i + 1}: ` + (g.kind === 'party' ? (e.route ? 'tab ' + e.route : 'no tab') : (e.weight ? 'weight ' + e.weight : 'no weight')) + ((e.aliases || []).length ? ', variants: ' + e.aliases.join(' · ') : '')).join('   |   ');
+        row.appendChild(meta);
+        if (!isHidden) { const acts = document.createElement('div'); acts.className = 'oea-dup-actions';
+          acts.appendChild(btn('Make them one entry', '', () => dupAct(`Made "${g.names[0]}" one entry.`, () => mergeTwins(g.kind, g.names[0])), 'Keeps the first copy with the variants, tab and routes of all copies; deletes the rest.'));
+          row.appendChild(acts); }
+        box.appendChild(row);
+      }
+      (g.code === 'twin' ? [] : g.names).forEach(name => {
+        const e = dupFind(g.kind, name); if (!e) return;
+        const holder = (g.holders || []).find(h => h.name === name);
+        const row = document.createElement('div'); row.className = 'oea-dup-entry';
+        const nm = document.createElement('div'); nm.className = 'oea-dup-name'; nm.textContent = e.name; row.appendChild(nm);
+        const meta = document.createElement('div'); meta.className = 'oea-dup-meta';
+        const bits = g.kind === 'party'
+          ? [e.route ? 'tab ' + escapeHtml(e.route) : 'no tab', (e.possibleRoutes || []).length ? 'routes ' + escapeHtml(e.possibleRoutes.join(', ')) : 'no routes']
+          : [e.weight ? 'weight ' + escapeHtml(String(e.weight)) : 'no weight'];
+        const vars = (e.aliases || []).map(a => holder && holder.alias === a ? `<mark>${escapeHtml(a)}</mark>` : escapeHtml(a));
+        bits.push(vars.length ? 'variants: ' + vars.join(' · ') : 'no variants');
+        meta.innerHTML = bits.join(' &nbsp;|&nbsp; '); row.appendChild(meta);
+        if (!isHidden) {
+          const acts = document.createElement('div'); acts.className = 'oea-dup-actions';
+          const others = g.names.filter(n => n !== name);
+          acts.appendChild(btn(`Keep this ${kindWord}, merge the other${others.length > 1 ? 's' : ''} into it`, '', () =>
+            dupAct(`Merged ${others.map(o => '"' + o + '"').join(', ')} into "${name}".`, () => mergeEntries(g.kind, name, others)),
+            'The other entry is deleted. Its name and variants become variants of this one, so orders written either way still read.'));
+          if (holder && holder.alias) acts.appendChild(btn(`Remove the variant "${holder.alias}" from this one`, '', () =>
+            dupAct(`Removed the variant "${holder.alias}" from "${name}".`, () => { e.aliases = (e.aliases || []).filter(a => a !== holder.alias); }),
+            'Both entries stay. Orders written this way then read as the other entry only.'));
+          acts.appendChild(btn(`Open in ${g.kind === 'party' ? 'Party' : 'Item'} Master`, 'ghost', () => {
+            navigate(g.kind === 'party' ? 'party' : 'item');
+            const box2 = $(g.kind === 'party' ? 'oea-party-search' : 'oea-product-search'); box2.value = name;
+            if (g.kind === 'party') renderPartyList(); else renderProductList();
+          }));
+          row.appendChild(acts);
+        }
+        box.appendChild(row);
+      });
+      const foot = document.createElement('div'); foot.className = 'oea-dup-foot';
+      if (isHidden) {
+        foot.appendChild(btn('Show it again', 'ghost', () => { lsSet(DUP_HIDE_KEY, JSON.stringify(dupHidden().filter(k => k !== dupKey(g)))); renderDuplicates(); }));
+      } else {
+        const tip = document.createElement('span');
+        tip.textContent = g.code === 'twin' ? 'Only the first copy is ever used when reading.' : g.code === 'alias' ? 'One variant can belong to one entry only.'
+          : g.code === 'same' ? 'If they really are two different items, rename one so a word or size tells them apart — or hide this.'
+          : 'If they are two different shops, hide this.';
+        foot.appendChild(tip);
+        foot.appendChild(btn('They are different — hide this', 'ghost', () => { const h = dupHidden(); h.push(dupKey(g)); lsSet(DUP_HIDE_KEY, JSON.stringify(h)); renderDuplicates('Hidden on this computer.'); },
+          'Hides this group on this computer. It still shows under "hidden" below.'));
+      }
+      box.appendChild(foot);
+      out.appendChild(box);
+    };
+    open.forEach(g => drawGroup(g, false));
+    if (hidden.length) {
+      const more = document.createElement('div'); more.className = 'oea-more-row';
+      more.appendChild(btn(dupShowHidden ? `Don't show the ${hidden.length} hidden` : `Show ${hidden.length} hidden`, 'ghost', () => { dupShowHidden = !dupShowHidden; renderDuplicates(); }));
+      out.appendChild(more);
+      if (dupShowHidden) hidden.forEach(g => drawGroup(g, true));
+    }
+  }
+  $('oea-dup-check-btn').addEventListener('click', () => renderDuplicates('Checked again.'));
   $('oea-clear-btn').addEventListener('click', () => {
     $('oea-text-input').value = ''; photoBase64 = null; photoSrc = null; cropBox = null;
     $('oea-file-preview').style.display='none'; $('oea-file-hint').textContent = 'Click to upload, or drag & drop a photo here';
@@ -2331,6 +2647,7 @@
       s = s.replace(/(\d)\s*(?:nos|no)\b/g, '$1 nos');
       s = s.replace(/(\d)\s*(?:pcs|pc|pieces|piece|pics|pic)\b/g, '$1 pc');
       s = s.replace(/(\d)\s*(?:boxes|box)\b/g, '$1 box');
+      s = s.replace(/(\d)\s*(?:sheets|sheet|shts|sht)\b/g, '$1 sheet');   // "- 5 sheets" is a count, like nos
       s = s.replace(/(\d)\s*(?:bundles|bundle|bdls|bdl)\b/g, '$1 bundle');
       s = s.replace(/(\d)\s*(?:coils|coil)\b/g, '$1 coil');
       s = s.replace(/(\d)\s*(?:bags|bag|bgs)\b/g, '$1 bag');
@@ -2350,7 +2667,8 @@
     // a number with a count unit (roll/nos/pc/box/bundle/coil/kg), or a number after - or : at the
     // end, or a bare number after a size ("3ft 2"). Anything else is left as "no quantity".
     function extractQty(n) {
-      const unitRe = /(?<![x\/.\d])(\d+(?:\.\d+)?)\s?(roll|nos|pc|box|bundle|coil|bag|kg)\b/g;
+      n = n.replace(/(\d)\s*[.,;]+\s*$/, '$1');                            // "- 5." : a full stop after the quantity
+      const unitRe = /(?<![x\/.\d])(\d+(?:\.\d+)?)\s?(roll|nos|pc|box|bundle|coil|bag|kg|sheet)\b/g;
       const sepAll = n.match(/[-:=]\s*\d+(?:\.\d+)?(?![\d.x\/]|mm|ft|g\b|mtr)/g) || [];
       let m, last = null;
       while ((m = unitRe.exec(n))) last = { m, index: m.index };
@@ -2358,10 +2676,20 @@
       const multi = !last && sepAll.length > 1;
       if (last) {
         const qty = last.m[1], unit = last.m[2];
-        const spec = (n.slice(0, last.index) + ' ' + n.slice(last.index + last.m[0].length));
-        return { qty, unit, kg: unit === 'kg', specText: cleanSpec(spec), multi: false };
+        const after = n.slice(last.index + last.m[0].length);
+        const spec = (n.slice(0, last.index) + ' ' + after);
+        const br = after.match(/^\s*\(([^()]*[a-z0-9][^()]*)\)\s*$/);       // "... - 2 box (black)": see the bracket note below
+        return { qty, unit, kg: unit === 'kg', specText: cleanSpec(spec), multi: false, ...(br ? { baseSpec: cleanSpec(n.slice(0, last.index)), tail: cleanSpec(br[1]) } : {}) };
       }
-      let s = n.match(/^(.*?)(?:[-:=]\s*)(\d+(?:\.\d+)?)\s*$/);
+      // "2x2x12x5 -1(6mm)": a bracket after the quantity is part of the item ("2x2x12x5 6mm"), not a second quantity
+      // also "Gipvc 6mmx3'-2 (black)" / "-2 (lite)"; tail + baseSpec let the reader drop a bracket that is only a remark
+      let s = n.match(/^(.*?)[-:=]\s*(\d+(?:\.\d+)?)\s*(roll|nos|pc|box|bundle|coil|bag|kg)?\s*\(([^()]*[a-z0-9][^()]*)\)\s*$/);
+      if (s && sepAll.length <= 1) return { qty: s[2], unit: s[3] || '', kg: s[3] === 'kg', specText: cleanSpec(s[1] + ' ' + s[4]), baseSpec: cleanSpec(s[1]), tail: cleanSpec(s[4]), multi: false };
+      // "40x40x3mmx12x5 - 5 urgent" / "1x1x10x4 - 5 heavy": words after the quantity. The reader keeps a word that
+      // belongs to a product (heavy) and leaves out a remark (urgent); a size word is never a quantity ("- 3 ft")
+      s = n.match(/^(.*?\S)\s*[-:=]\s*(\d+(?:\.\d+)?)\s+([a-z][a-z ]*?)\s*$/);
+      if (s && sepAll.length <= 1 && !/^(?:ft|feet|mm|mtr|m|g|inch|x|kg|gsm)\b/.test(s[3])) return { qty: s[2], unit: '', kg: false, specText: cleanSpec(s[1] + ' ' + s[3]), baseSpec: cleanSpec(s[1]), tail: cleanSpec(s[3]), multi: false };
+      s = n.match(/^(.*?)(?:[-:=]\s*)(\d+(?:\.\d+)?)\s*$/);
       if (s && !multi) return { qty: s[2], unit: '', kg: false, specText: cleanSpec(s[1]), multi: false };
       s = n.match(/^(.*(?:\d(?:ft|mm)|\dx\d+))\s+(\d+(?:\.\d+)?)\s*$/);   // "3ft 2", "12x5 10"
       if (s && !multi) return { qty: s[2], unit: '', kg: false, specText: cleanSpec(s[1]), multi: false };
@@ -2431,11 +2759,25 @@
       const products = master.products.map(p => {
         const names = [];
         [p.name, ...(p.aliases || [])].filter(Boolean).forEach(n => {
-          names.push(n);
+          names.push({ n, derived: false });
+          // A bracket in a name is read three ways:
+          //  - "Tata Wire 2mm (14g)": the same size in the other unit -> also "Tata Wire 2mm" and "Tata Wire 14g"
+          //  - "... (2.8kg)", "(50kg roll)", "(80gsm)": a packing note   -> also the name without it
+          //  - anything else - "(black)", "(lite)", "(heavy)", "(3mm hole)", "6mm (5.5mm)" - is PART of the item:
+          //    the name is never read without it, so an order that leaves the word out cannot land on this item
           const m = n.match(/^(.*?)\(([^)]*)\)(.*)$/);
-          if (m) { names.push(m[1] + ' ' + m[3]); if (/\s\S/.test(m[1])) names.push(m[1].replace(/\S+\s*$/, '') + m[2] + ' ' + m[3]); }
+          if (m) {
+            const inner = m[2].trim().toLowerCase(), before = m[1].toLowerCase();
+            const unit = (inner.match(/^\d+(?:\.\d+)?\s*(mm|g)(?:\s+(?:super heavy|heavy|lite|light|pakka))?$/) || [])[1];                    // "(14g)", "(8g heavy)", "( 2.3mm )"
+            const other = unit === 'g' ? 'mm' : 'g';
+            const sameSize = !!unit && new RegExp('\\d\\s*' + other + '(?![a-wyz])').test(before);   // the name already gives the size in the other unit
+            const note = /\b(?:kg|gsm|rolls?|nos|pcs?|bundles?|box|coil)\b|\d\s*(?:kg|gsm)\b|\bof\b/.test(inner);
+            if (sameSize || note) names.push({ n: m[1] + ' ' + m[3], derived: true });
+            if (sameSize && /^\d+(?:\.\d+)?\s*(?:mm|g)$/.test(inner) && /(?:^|\s)\d+(?:\.\d+)?\s*(?:mm|g)\s*$/i.test(m[1])) names.push({ n: m[1].replace(/\S+\s*$/, '') + m[2] + ' ' + m[3], derived: true });
+          }
         });
-        const feats = names.map(n => { const nn = normText(n); const q = extractQty(nn); return { name: n, exact: q.specText, ...parseSpec(q.specText) }; });
+        // derived = a bracket-free spelling made from "2x2x12x5 6mm (5.5mm)"; it must never beat a product's own plain alias
+        const feats = names.map(({ n, derived }) => { const nn = normText(n); const q = extractQty(nn); return { name: n, derived, exact: q.specText, ...parseSpec(q.specText) }; });
         const words = new Set(feats.flatMap(f => f.words));
         return { p, feats, words };
       });
@@ -2457,7 +2799,8 @@
       }
 
       function matchSpec(specText) {
-        const exact = products.filter(e => e.feats.some(x => x.exact === specText));
+        let exact = products.filter(e => e.feats.some(x => x.exact === specText));
+        if (exact.length > 1) { const own = exact.filter(e => e.feats.some(x => !x.derived && x.exact === specText)); if (own.length) exact = own; }
         if (exact.length) return { hits: exact.map(e => e.p), how: 'exact' };
         const f = parseSpec(specText);
         f.words = f.words.map(fixWord);
@@ -2629,17 +2972,24 @@
         const have = new Set(parseSpec(ctx).words);
         return new Set(parseSpec(specText).words.filter(w => w.length >= 2 && !isGeneric(w) && !have.has(w))).size;
       }
-      function readSpec(specText, q, ctx, sheetTpl) {
+      function readSpec(specText, q, ctx, sheetTpl, fam, famHeading) {
         const variants = [];
         // "Nail 2.5x10 - 10 box": nails counted in boxes are First wire nails (your rule)
-        const boxNail = q.unit === 'box' && /\bnails?\b/.test(specText + ' ' + ctx) && !/\b(first|sada)\b/.test(specText + ' ' + ctx);
+        const boxNail = q.unit === 'box' && /\bnails?\b/.test(specText + ' ' + ctx + ' ' + (fam || '')) && !/\b(first|sada)\b/.test(specText + ' ' + ctx + ' ' + (fam || ''));
         const fs = parseSpec(specText);
         const sizeOnly = !fs.words.length && fs.seq.length <= 1;          // "4ft-3" means nothing without its heading
         const barePair = !fs.words.length && fs.seq.length === 2 && fs.seq.every(x => !x.u);   // "12x5" alone = a sheet-size continuation
         const tries = [];
         if (ctx) tries.push({ t: tidySpec(ctx + ' ' + specText), ctx: true });
         if (sheetTpl && barePair) tries.push({ t: tidySpec(sheetTpl.pre + specText.trim() + sheetTpl.post), ctx: true });
-        if (specText && !(ctx && sizeOnly)) tries.push({ t: tidySpec(specText), ctx: false });
+        // the product family named above ("Tata wire" as a heading, or the words of the line before): a line that
+        // names no product of its own ("12g-50kg" after "14g-50kg") is first read inside that family
+        if (fam && !fs.words.length && fs.hasNums && (famHeading || sizeOnly)) {   // after a plain line only a lone size ("12g") stays in its family
+          const t = tidySpec(fam + ' ' + specText);
+          if (!tries.some(x => x.t === t)) tries.push({ t, ctx: true, fam: true });
+        }
+        // a bare size under a heading means nothing by itself: "20g" under "Tata wire" is never some other wire
+        if (specText && !((ctx || (fam && famHeading)) && sizeOnly)) tries.push({ t: tidySpec(specText), ctx: false });
         tries.forEach(x => {
           if (boxNail) variants.push({ ...x, t: 'first wire ' + x.t });
           variants.push(x);
@@ -2727,6 +3077,8 @@
           const party = matchParty(partyText);
           const items = []; const doubts = [];
           let hWords = '', hSpec = '', lastBase = '', sheetTpl = null, seenItem = false;
+          let famWords = '', famHeading = false;                       // see readSpec: the product family lines below belong to
+          const wordsOnly = t => String(t || '').split(/\s+/).filter(w => w && !/\d/.test(w)).join(' ');
           const dropSize = t => t.replace(/x?\d+(?:\.\d+)?ft\b/, '').trim();
           // "1x1x10x3" / "1/2x1/2x10x3 lite" - the 4th number is the length; base is "1x1x10" so a later "5ft" slots in
           const dropCodeLen = t => { const m = t.match(/^(.*?\d[\d.\/]*x[\d.\/]+x[\d.\/]+g?)x\d+(?:\.\d+)?(?![\d.x\/]|mm|g\b|ft)(.*)$/); return m ? (m[1] + m[2]).trim() : ''; };
@@ -2743,6 +3095,12 @@
           };
           o.body.forEach(l => {
             const q = extractQty(l.n);
+            // "- 2 (black)" is part of the item, "- 2 (urgent)" is a remark: a bracket after the quantity with no
+            // number and no word any product uses is left out of the item
+            if (q.tail && !/\d/.test(q.tail)) {
+              const tw = (q.tail.match(/[a-z]+/g) || []).map(stem).map(fixWord);
+              if (!tw.some(w => vocab.has(w)) || tw.every(w => CHATTER.has(w) || STOP_WORDS.has(w))) q.specText = q.baseSpec;
+            }
             if (!q.qty && !q.multi) {                                         // heading line
               // a heading with an unknown word after items could be a new shop's name - don't trust the split
               if (seenItem && l.unknownWord) doubts.push(`"${l.raw}" might be a new party, not a heading`);
@@ -2750,8 +3108,8 @@
               // hWords + hSpec are two slots that build up together ("Sheet mesh" then "1x1x4mm"); only flush
               // when hSpec itself is about to be thrown away still unused - that's the point real info gets lost
               if (hSpec && !headingUsed) flushPendingHeading();
-              if (!f.hasNums) { hWords = q.specText; hSpec = ''; }
-              else { if (f.words.length) hWords = ''; hSpec = q.specText; }   // "Gi chainlink 65*65*2.5" is a new family
+              if (!f.hasNums) { hWords = q.specText; hSpec = ''; famWords = q.specText; famHeading = true; }
+              else { if (f.words.length) { hWords = ''; famWords = wordsOnly(q.specText); famHeading = true; } hSpec = q.specText; }   // "Gi chainlink 65*65*2.5" is a new family
               lastBase = ''; sheetTpl = null;
               if (headingUsed) pendingHeadingRaw = [l.raw]; else pendingHeadingRaw.push(l.raw);
               headingUsed = false;
@@ -2818,7 +3176,7 @@
             }
             parts.forEach(({ q: pq, raw, bad, qty: badQty, own }) => {
               if (bad) { items.push({ raw, status: 'unclear', why: 'could not tell which size this part of the line is', qty: badQty }); return; }
-              const r = readSpec(pq.specText, pq, own ? '' : ctx, own ? null : sheetTpl);
+              const r = readSpec(pq.specText, pq, own ? '' : ctx, own ? null : sheetTpl, own ? '' : famWords, famHeading);
               // A line that names a product of its own ("Sq net verg green 12mm 3ft" after "Al coil 1.5ft",
               // "Tarfelt golden" after "1x1/2x10g 3ft") is a new product, not more of the one above: when the
               // two together fit nothing, it must not be shown as "al coil sq net ...", and the next "4ft -1"
@@ -2828,6 +3186,9 @@
               if (r.ok) {
                 const pick = r.pick;
                 items.push({ raw, read: pick.t, product: pick.r.hits[0], how: pick.r.how, qty: pq.qty, unit: pq.unit, kg: pq.kg, status: 'ok', usedHeading: pick.ctx });
+                // a line read by itself that names a product ("Tata wire 14g") starts that family; one that is only
+                // a size ("1/2x1/2x10x3") ends the family above
+                if (!pick.ctx && !own) { famWords = parseSpec(pq.specText).words.length ? wordsOnly(pick.t) : ''; famHeading = false; }
                 const ownRest = dropSize(pq.specText).trim();
                 const ownSize = pick.ctx && !own && /\d/.test(ownRest) && !/^\d+(?:\.\d+)?x\d+(?:\.\d+)?$/.test(ownRest);   // a bare sheet size "12x5" is not a new base
                 if (ownSize) { hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(pick.t); lastBase = baseOf(pick.t, sheetTpl); }
@@ -2839,7 +3200,7 @@
               } else {
                 const ownText = tidySpec(pq.specText);
                 items.push({ raw, status: r.status, why: r.why, candidates: r.candidates, qty: pq.qty, read: newFamily ? ownText : r.read });
-                if (newFamily) { hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(ownText); lastBase = baseOf(ownText, sheetTpl); }
+                if (newFamily) { hSpec = ''; hWords = ''; sheetTpl = splitSheetPair(ownText); lastBase = baseOf(ownText, sheetTpl); famWords = wordsOnly(ownText); famHeading = false; }
               }
             });
             if (pendRaw.length && pendHadSize && !ctxUsed) items.splice(insertAt, 0, { raw: pendRaw.join(' / '), status: 'no_qty', why: 'no quantity found for this line', qty: '' });
@@ -2860,21 +3221,31 @@
 
       // Products that read as the same item (so the code can't choose between them), and one alias
       // text given to two products. Parties whose names are the same apart from spelling.
+      // Every group: { kind:'product'|'party', code, names:[...], why, text?, holders?:[{name, alias}] }
+      //   code 'alias'  - one variant text sits on two entries (holders say which variant on which entry;
+      //                   alias null = it is that entry's own name)
+      //   code 'same'   - two products read as the same item (same size and words)
+      //   code 'spelling' - two parties with the same name spelt differently
       function findDuplicates() {
         const groups = new Map();
-        const add = (names, why) => { const k = [...new Set(names)].sort(); if (k.length < 2) return; const key = k.join('||'); if (!groups.has(key)) groups.set(key, { kind: 'product', names: k, why }); };
-        // Exact alias collisions first: they name the precise text to fix.
+        const add = (g) => { g.names = [...new Set(g.names)].sort(); if (g.names.length < 2) return; const key = g.kind + ':' + g.names.join('||'); if (!groups.has(key)) groups.set(key, g); };
+        // Exact alias collisions first: they name the precise text to fix. A bracket-free spelling the tool made
+        // itself (derived) only counts when no entry owns that text outright - an owned variant wins when reading.
         const aliasOwners = new Map();
-        products.forEach(e => e.feats.forEach(f => { const k = f.exact; if (!k) return; aliasOwners.set(k, [...new Set([...(aliasOwners.get(k) || []), e.p.name])]); }));
-        aliasOwners.forEach((owners, text) => { if (owners.length > 1) add(owners, `same alias on both: "${text}"`); });
+        products.forEach(e => e.feats.forEach((f, i) => { const k = f.exact; if (!k) return; if (!aliasOwners.has(k)) aliasOwners.set(k, []); aliasOwners.get(k).push({ name: e.p.name, alias: f.name === e.p.name ? null : f.name, derived: !!f.derived }); }));
+        aliasOwners.forEach((list, text) => {
+          const own = list.filter(x => !x.derived), use = own.length ? own : list;
+          const holders = []; use.forEach(x => { if (!holders.some(h => h.name === x.name)) holders.push({ name: x.name, alias: x.alias }); });
+          if (holders.length > 1) add({ kind: 'product', code: 'alias', names: holders.map(h => h.name), text, holders, why: `the same variant is on both: "${text}"` });
+        });
         products.forEach(e => e.feats.forEach(f => {
-          if (!f.hasNums) return;
-          const same = products.filter(o => o.feats.some(x => x.hasNums && x.qual === f.qual && ((x.untagged === f.untagged && x.tagged === f.tagged) || x.exact === f.exact)) && wordsAgree(o, f.words) && wordsAgree(e, [...o.words]));
-          if (same.length > 1) add(same.map(o => o.p.name), 'same size and words');
+          if (!f.hasNums || f.derived) return;
+          const same = products.filter(o => o.feats.some(x => !x.derived && x.hasNums && x.qual === f.qual && ((x.untagged === f.untagged && x.tagged === f.tagged) || x.exact === f.exact)) && wordsAgree(o, f.words) && wordsAgree(e, [...o.words]));
+          if (same.length > 1) add({ kind: 'product', code: 'same', names: same.map(o => o.p.name), why: 'they read as the same item (same size and words)' });
         }));
         const fold = n => ptoks(n).map(skel).join(' ').replace(/(\w)s\b/g, '$1');
         const pg = new Map(); master.parties.forEach(p => { const k = fold(p.name); pg.set(k, [...(pg.get(k) || []), p.name]); });
-        // a party alias that is another party's name (or alias) - checked first, it names the exact text to fix
+        // a party variant that is another party's name (or variant) - checked first, it names the exact text to fix
         const pOwners = new Map();
         master.parties.forEach(p => [p.name, ...(p.aliases || [])].forEach((t, i) => {
           const k = fold(t); if (!k) return;
@@ -2886,10 +3257,16 @@
           const aliasHit = list.find(x => !x.isName);
           if (names.length < 2 || !aliasHit) return;
           const other = list.find(x => x.p !== aliasHit.p);
-          const why = other.isName ? `alias "${aliasHit.text}" of ${aliasHit.p.name} is the name of ${other.p.name}` : `same alias on both: "${aliasHit.text}"`;
-          groups.set('p:' + [...names].sort().join('||'), { kind: 'party', names, why });
+          const why = other.isName ? `variant "${aliasHit.text}" of ${aliasHit.p.name} is the name of ${other.p.name}` : `the same variant is on both: "${aliasHit.text}"`;
+          const holders = []; list.forEach(x => { if (!holders.some(h => h.name === x.p.name)) holders.push({ name: x.p.name, alias: x.isName ? null : x.text }); });
+          add({ kind: 'party', code: 'alias', names, text: aliasHit.text, holders, why });
         });
-        pg.forEach(names => { const key = 'p:' + [...names].sort().join('||'); if (names.length > 1 && !groups.has(key)) groups.set(key, { kind: 'party', names, why: 'same name, different spelling' }); });
+        pg.forEach(names => { if (names.length > 1) add({ kind: 'party', code: 'spelling', names, why: 'the same name, spelt differently' }); });
+        // the very same name entered twice: the reader only ever sees the first copy
+        [['party', master.parties], ['product', master.products]].forEach(([kind, list]) => {
+          const seen = new Map(); list.forEach(e => { const k = String(e.name || '').trim(); if (k) seen.set(k, (seen.get(k) || 0) + 1); });
+          seen.forEach((n, name) => { if (n > 1) groups.set(kind + ':twin:' + name, { kind, code: 'twin', names: [name], count: n, why: `"${name}" is in the list ${n} times` }); });
+        });
         return [...groups.values()];
       }
 
@@ -3315,7 +3692,8 @@
     if (!prod) return false;
     // remember the order's own wording, so the code reads it by itself next time
     const raw = tr.dataset.rawProduct || '';
-    if (learnWording && raw && normalize(raw) !== normalize(prod.name) && !(prod.aliases || []).some(a => normalize(a) === normalize(raw))) {
+    // (never when another product already has that wording - one variant, one product)
+    if (learnWording && learnable(raw) && normalize(raw) !== normalize(prod.name) && !(prod.aliases || []).some(a => normalize(a) === normalize(raw)) && !findProductByNameOrAlias(raw, prod)) {
       prod.aliases = prod.aliases || []; prod.aliases.push(raw); saveMaster();
     }
     inp.value = prod.name; inp.placeholder = ''; inp.title = '';
@@ -3335,7 +3713,7 @@
     let p = raw ? findPartyByWording(raw) : null;
     if (!p && learnWording && inp && inp.value.trim()) {
       p = findPartyByNameOrAlias(inp.value.trim());
-      if (p && raw && normalize(raw) !== normalize(p.name) && !(p.aliases || []).some(a => normalize(a) === normalize(raw))) {
+      if (p && raw && normalize(raw) !== normalize(p.name) && !(p.aliases || []).some(a => normalize(a) === normalize(raw)) && !findPartyByNameOrAlias(raw, p)) {
         p.aliases = p.aliases || []; p.aliases.push(raw.toUpperCase()); saveMaster();
       }
     }
@@ -3611,7 +3989,7 @@
         if (!existing.route && route) { existing.route = route; updatedRoutes++; }
         // remember how it was typed, so the code matches it by itself next time
         const typed = (tr.dataset.rawName || '').trim().toUpperCase();
-        if (typed && normalize(typed) !== normalize(existing.name) && !(existing.aliases || []).some(a => normalize(a) === normalize(typed))) {
+        if (typed && normalize(typed) !== normalize(existing.name) && !(existing.aliases || []).some(a => normalize(a) === normalize(typed)) && !findPartyByNameOrAlias(typed, existing)) {
           existing.aliases = existing.aliases || []; existing.aliases.push(typed); changed = true; partyAliases++;
         }
         if (possibleRoutes.length) {
@@ -3655,13 +4033,13 @@
       if (existing) {
         if (normalize(existing.name) !== normalize(correctedName) && prodInput) prodInput.value = existing.name;
         // user typed the name of a product that already exists - remember this raw wording as an alias
-        if (rawName && normalize(rawName) !== normalize(correctedName)) {
+        if (learnable(rawName) && normalize(rawName) !== normalize(correctedName)) {
           existing.aliases = existing.aliases || [];
-          if (!existing.aliases.some(a => normalize(a) === normalize(rawName))) { existing.aliases.push(rawName); mergedAliases++; }
+          if (!existing.aliases.some(a => normalize(a) === normalize(rawName)) && !findProductByNameOrAlias(rawName, existing)) { existing.aliases.push(rawName); mergedAliases++; }
         }
         if (weightInput && weightInput.value.trim() && !existing.weight) { existing.weight = weightInput.value.trim(); changed = true; }
       } else {
-        const aliases = (rawName && normalize(rawName) !== normalize(correctedName)) ? [rawName] : [];
+        const aliases = (learnable(rawName) && normalize(rawName) !== normalize(correctedName)) ? [rawName] : [];
         master.products.push({name: correctedName, weight: weightInput ? weightInput.value.trim() : '', aliases});
         addedProducts++;
       }
@@ -3880,7 +4258,7 @@
   $('oea-date').value = localISODate();
   const versionBadge = $('oea-version-badge');
   if (versionBadge) {
-    versionBadge.textContent = `Order to Sheet ${TOOL_VERSION} · ${TOOL_VERSION_DATE}`;
+    versionBadge.textContent = `Order to Sheet ${TOOL_VERSION} · ${TOOL_VERSION_DATE.split('-').reverse().join('-')}`;
     versionBadge.title = `Order to Sheet ${TOOL_VERSION} (${TOOL_VERSION_DATE}) — quote this when comparing copies of the tool.`;
   }
 
@@ -3945,12 +4323,13 @@
       else if (!party) out.problems.push(`a block under ${tab} has no party name`);
       else if (pr && pr.classList.contains('oea-flagged')) out.problems.push(`${name}: orange party row`);
       if (!items.length) out.problems.push(`${name}: no item lines`);
+      if (!((d.querySelector('input[data-field="date"]') || {}).value || '').trim()) out.problems.push(`${name}: the order has no date`);
       items.forEach(it => {
         const v = f => (it.querySelector(`input[data-field="${f}"]`) || {}).value || '';
         const prod = v('product').trim(), qty = v('qty').trim();
         if (it.classList.contains('oea-flagged')) out.problems.push(`${name}: orange line "${prod || '?'}"${it.dataset.kgCheck === '1' ? ' (kg - check the qty, then press "qty OK")' : ''}`);
         else if (!prod) out.problems.push(`${name}: a line with no item name`);
-        else if (!qty || isNaN(parseNum(qty))) out.problems.push(`${name}: "${prod}" has no qty`);
+        else if (!qty || isNaN(parseNum(qty)) || parseNum(qty) <= 0) out.problems.push(`${name}: "${prod}" has no qty`);
       });
       out.blocks.push({ d, tab, party, items, place });
     });
